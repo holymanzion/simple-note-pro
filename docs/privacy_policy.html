@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Privacy Policy — Simple Note Pro</title>
+<style>
+  :root {
+    --bg: #fffbf6;
+    --surface: #f5ece1;
+    --text: #1f1b16;
+    --muted: #4e4539;
+    --accent: #7a5900;
+    --border: #d1c5b4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #17140f;
+      --surface: #231f1a;
+      --text: #eae1d6;
+      --muted: #d1c5b4;
+      --accent: #f6be48;
+      --border: #4e4539;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 24px 16px 48px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, Roboto, "Segoe UI", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.65;
+    max-width: 760px;
+    margin-inline: auto;
+  }
+  h1 { font-size: 1.6rem; margin: 0 0 4px; }
+  h2 { font-size: 1.15rem; margin: 32px 0 8px; color: var(--accent); }
+  .updated { color: var(--muted); font-size: 0.9rem; margin-bottom: 28px; }
+  .callout {
+    background: var(--surface);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin: 20px 0;
+  }
+  ul { padding-left: 22px; }
+  li { margin-bottom: 8px; }
+  a { color: var(--accent); }
+  code {
+    background: var(--surface);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.9em;
+  }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 0.95rem; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; }
+  footer {
+    margin-top: 40px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.88rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>Privacy Policy</h1>
+<p class="updated">Simple Note Pro &middot; Last updated 3 October 2026</p>
+
+<div class="callout">
+  <strong>In short:</strong> your notes, checklists, pictures and reminders are stored only
+  on your phone. There is no account, no advertising and no tracking by the developer.
+  The one exception is Google's on-device text reader, which sends Google basic,
+  anonymous usage statistics. It never sends your pictures or your notes.
+</div>
+
+<h2>1. Who this covers</h2>
+<p>
+  This policy explains how the Android app <strong>Simple Note Pro</strong>
+  (package <code>com.holymanzion.simplenotepro</code>, "the app") handles information.
+  The app is published by an independent developer, who can be contacted at the address
+  at the end of this page.
+</p>
+
+<h2>2. What you put in the app stays on your phone</h2>
+<p>
+  Notes, checklists, labels, colours, reminders, pictures you add, and the text read from
+  those pictures are saved in the app's private storage on your device. The developer has
+  no server and never receives any of it. The app does not ask you to create an account or
+  sign in.
+</p>
+<p>The developer does not collect, sell or share:</p>
+<ul>
+  <li>your name, email address, phone number or any account details;</li>
+  <li>your location, contacts or calendar;</li>
+  <li>the contents of your notes or pictures;</li>
+  <li>advertising identifiers. The app contains no ads.</li>
+</ul>
+
+<h2>3. Google ML Kit (text in photos)</h2>
+<p>
+  To make the words in your pictures searchable, the app uses
+  <a href="https://developers.google.com/ml-kit/vision/text-recognition/v2">Google ML Kit text recognition</a>.
+  The recognition runs <strong>on your device</strong>: your pictures and the text read
+  from them are not uploaded.
+</p>
+<p>
+  ML Kit does send Google limited information about how the feature is working. According to
+  <a href="https://developers.google.com/ml-kit/android-data-disclosure">Google's ML Kit data disclosure</a>, this covers:
+</p>
+<ul>
+  <li>device information (such as manufacturer, model, Android version and build);</li>
+  <li>app information (the package name and app version);</li>
+  <li>per-installation identifiers that are not intended to identify you;</li>
+  <li>performance metrics (such as how long recognition took);</li>
+  <li>the settings used (such as image format and resolution);</li>
+  <li>event types (such as the feature starting or a recognition running) and error codes.</li>
+</ul>
+<p>
+  Google uses this for diagnostics and usage analytics, sends it encrypted (HTTPS), and states
+  that it does not transfer it to third parties. Its handling is governed by the
+  <a href="https://policies.google.com/privacy">Google Privacy Policy</a>. This is why the app
+  holds Android's internet permission. The app itself uses no network connection.
+</p>
+
+<h2>4. Permissions and what they are for</h2>
+<table>
+  <tr><th>Permission</th><th>Used for</th></tr>
+  <tr><td>Notifications</td><td>Showing the reminders you set. You can turn them off in Android settings at any time.</td></tr>
+  <tr><td>Alarms &amp; reminders (exact alarms)</td><td>Making reminders go off at the minute you chose. Without it they may arrive a few minutes late.</td></tr>
+  <tr><td>Run at startup</td><td>Setting your reminders again after the phone restarts.</td></tr>
+  <tr><td>Fingerprint / biometrics</td><td>The optional app lock. Android handles the check itself: the app only learns whether it succeeded and never receives fingerprint or face data.</td></tr>
+  <tr><td>Internet and network state</td><td>Google ML Kit's usage statistics described in section 3.</td></tr>
+  <tr><td>Wake lock and foreground service</td><td>Added by Android's background-work library, which runs automatic backups reliably.</td></tr>
+</table>
+<p>
+  The app does <strong>not</strong> hold the camera, storage or photo permissions. To take a
+  photo it opens your camera app, and to add pictures it uses Android's photo picker. The app
+  only receives the pictures you choose.
+</p>
+
+<h2>5. Backups and sharing are under your control</h2>
+<ul>
+  <li>
+    <strong>Exported backups</strong> and <strong>automatic backups</strong> are ZIP files saved
+    only where you choose, such as a folder on your phone or a folder synced by a cloud
+    service. If you choose a cloud-synced folder, that service's own privacy policy applies to
+    the copy it holds. Backup files are not encrypted, so keep them somewhere you trust.
+  </li>
+  <li>
+    <strong>Sharing</strong> a note or picture sends it only to the app you pick in Android's
+    share menu.
+  </li>
+  <li>
+    With the <strong>app lock</strong> on, the app also hides its contents from screenshots and
+    the recent-apps screen, and the home-screen widget shows no note contents.
+  </li>
+</ul>
+
+<h2>6. Keeping and deleting your data</h2>
+<p>
+  Your data stays on your device until you delete it. Notes moved to the trash are deleted
+  permanently after 30 days, or immediately if you empty the trash. Uninstalling the app
+  deletes everything it stored. Backup files you exported are not affected, because they live
+  wherever you saved them.
+</p>
+
+<h2>7. Security</h2>
+<p>
+  Your notes are kept in storage that Android reserves for this app, so other apps cannot read
+  it, and your phone's own device encryption protects it at rest. The optional app lock adds a
+  fingerprint, face or screen-lock check before the app opens.
+</p>
+
+<h2>8. Children</h2>
+<p>
+  The app is a general-purpose note-taking tool and is not directed at children under 13. The
+  developer collects no personal information from anyone, including children.
+</p>
+
+<h2>9. Changes to this policy</h2>
+<p>
+  If the app's handling of information changes, this page will be updated and the date at the
+  top revised. The current version is always available at
+  <a href="https://holymanzion.github.io/simple-note-pro/privacy_policy.html">holymanzion.github.io/simple-note-pro/privacy_policy.html</a>.
+</p>
+
+<h2>10. Contact</h2>
+<p>
+  Questions about this policy can be sent to
+  <a href="mailto:holymanzion@gmail.com">holymanzion@gmail.com</a>.
+</p>
+
+<footer>
+  This document is also bundled inside the app under Settings &rsaquo; Privacy policy.
+</footer>
+
+</body>
+</html>

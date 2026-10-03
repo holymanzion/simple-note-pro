@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_note"
+        android:enabled="true"
+        android:icon="@drawable/ic_notification_tinted"
+        android:shortcutShortLabel="@string/shortcut_note">
+        <intent
+            android:action="com.holymanzion.simplenotepro.NEW_NOTE"
+            android:targetClass="com.holymanzion.simplenotepro.MainActivity"
+            android:targetPackage="com.holymanzion.simplenotepro" />
+    </shortcut>
+    <shortcut
+        android:shortcutId="new_checklist"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_checklist"
+        android:shortcutShortLabel="@string/shortcut_checklist">
+        <intent
+            android:action="com.holymanzion.simplenotepro.NEW_CHECKLIST"
+            android:targetClass="com.holymanzion.simplenotepro.MainActivity"
+            android:targetPackage="com.holymanzion.simplenotepro" />
+    </shortcut>
+</shortcuts>
