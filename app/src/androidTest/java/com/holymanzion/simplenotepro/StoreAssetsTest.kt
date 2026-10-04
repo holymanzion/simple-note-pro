@@ -139,9 +139,14 @@ class StoreAssetsTest {
         shot("03-checklist", "Checklists you can reorder", "Drag items; done ones move down")
         back()
 
-        openNote("Water the plants")
+        // A note without a reminder: one with a reminder would show this test install's
+        // "notifications are off" warning behind the dialog.
+        openNote("Book club: October") // fully visible: "Project ideas" sits under the Note button
         rule.onNodeWithContentDescription("Reminder").performClick()
         waitForText("Repeat")
+        rule.onNodeWithText("Repeat").performClick()
+        rule.onNodeWithText("Weekly").performClick()
+        rule.waitForIdle()
         shot("04-reminders", "Reminders that repeat", "Daily, weekly, monthly or yearly")
         rule.onNodeWithText("Cancel").performClick()
         back()
@@ -153,6 +158,9 @@ class StoreAssetsTest {
         shot("05-search-photos", "Find words inside photos", "Receipts and documents become searchable")
         rule.onNodeWithContentDescription("Clear search").performClick()
         hideKeyboard()
+        // Visiting a note and coming back leaves the search bar unfocused (no cursor).
+        openNote("Groceries")
+        back()
 
         theme(ThemeMode.DARK)
         waitForText("Weekend in Lisbon")
@@ -162,7 +170,7 @@ class StoreAssetsTest {
         rule.waitForIdle()
         rule.onAllNodesWithText("Settings").onLast().performClick()
         waitForText("App lock")
-        shot("07-private", "Private by design", "App lock and automatic backups. No account, no ads.")
+        shot("07-private", "Private by design", "App lock, backups, no account, no ads")
         theme(ThemeMode.LIGHT)
     }
 
@@ -231,10 +239,13 @@ class StoreAssetsTest {
 
     private fun back() = rule.onNodeWithContentDescription("Back").performClick()
 
+    /** Hides the keyboard and clears focus, so no cursor blinks in the search bar. */
     private fun hideKeyboard() {
         rule.runOnUiThread {
             val window = rule.activity.window
             WindowCompat.getInsetsController(window, window.decorView).hide(WindowInsetsCompat.Type.ime())
+            window.currentFocus?.clearFocus()
+            window.decorView.clearFocus()
         }
         rule.waitForIdle()
         Thread.sleep(600)
