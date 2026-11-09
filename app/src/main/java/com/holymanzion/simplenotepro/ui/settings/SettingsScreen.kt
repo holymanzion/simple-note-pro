@@ -5,16 +5,19 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import androidx.compose.material.icons.outlined.Campaign
 import androidx.compose.material.icons.outlined.CloudDone
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.Password
 import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.FragmentActivity
 import com.holymanzion.simplenotepro.backup.AutoBackupWorker
 import com.holymanzion.simplenotepro.data.BackupFrequency
+import com.holymanzion.simplenotepro.data.BackupPasswordException
 import com.holymanzion.simplenotepro.lock.DeviceAuth
 import com.holymanzion.simplenotepro.ui.components.fullDateTime
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -78,6 +81,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
     var themeDialog by remember { mutableStateOf(false) }
 
     var frequencyDialog by remember { mutableStateOf(false) }
+    val adPrivacyRequired by container.ads.privacyOptionsRequired.collectAsStateWithLifecycle()
 
     fun toggleAppLock() {
         val activity = context.findActivity() ?: return
@@ -124,19 +128,34 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
             snackbar.showSnackbar(message)
         }
     }
-    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+    val passwordSet by container.backupPassword.isSet.collectAsStateWithLifecycle()
+    var passwordDialog by remember { mutableStateOf(false) }
+    // A protected backup waiting for its password: the file, and whether the last try was wrong.
+    var pendingImport by remember { mutableStateOf<Pair<Uri, Boolean>?>(null) }
+
+    fun importBackup(uri: Uri, password: CharArray? = null) {
         scope.launch {
-            val message = runCatching {
+            val result = runCatching {
                 withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)?.use { container.backup.import(it) }
+                    context.contentResolver.openInputStream(uri)?.use { container.backup.import(it, password) }
                         ?: error("Could not open file")
                 }
-            }.fold({ "Imported $it notes" }, { "That file isn't a Simple Note Pro backup" })
+            }
+            result.exceptionOrNull()?.let { error ->
+                if (error is BackupPasswordException) {
+                    pendingImport = uri to error.wrongPassword
+                    return@launch
+                }
+            }
+            pendingImport = null
             // Backups from before text search have pictures without their text yet.
             container.appScope.launch { container.repository.readPendingImageText() }
-            snackbar.showSnackbar(message)
+            snackbar.showSnackbar(result.fold({ "Imported $it notes" }, { "That file isn't a Simple Note Pro backup" }))
         }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importBackup(uri)
     }
 
     Scaffold(
@@ -227,9 +246,17 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
 
             SectionHeader("Backup file")
             SettingRow(
+                icon = Icons.Outlined.Password,
+                title = "Backup password",
+                subtitle = if (passwordSet) "On · exported and automatic backups are encrypted (AES-256)"
+                else "Off · set one to encrypt your backups",
+                onClick = { passwordDialog = true },
+            )
+            SettingRow(
                 icon = Icons.Outlined.Backup,
                 title = "Export notes",
-                subtitle = "Save all notes, labels and images to a ZIP file",
+                subtitle = if (passwordSet) "Save all notes, labels and images to a password-protected ZIP file"
+                else "Save all notes, labels and images to a ZIP file",
                 onClick = { exportLauncher.launch("simple-note-pro-${LocalDate.now()}.zip") },
             )
             SettingRow(
@@ -251,12 +278,38 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
             SettingRow(
                 icon = Icons.Outlined.PrivacyTip,
                 title = "Privacy policy",
-                subtitle = "What the app stores, and what it never collects",
+                subtitle = "What the app stores, and what ads collect",
                 onClick = onOpenPrivacyPolicy,
             )
+            if (adPrivacyRequired) {
+                SettingRow(
+                    icon = Icons.Outlined.Campaign,
+                    title = "Ad privacy choices",
+                    subtitle = "Change whether ads can be personalised",
+                    onClick = { context.findActivity()?.let(container.ads::showPrivacyOptions) },
+                )
+            }
         }
     }
 
+    if (passwordDialog) {
+        BackupPasswordDialog(
+            isSet = passwordSet,
+            onSave = { password ->
+                container.backupPassword.set(password)
+                passwordDialog = false
+                scope.launch { snackbar.showSnackbar(if (password == null) "Backup password removed" else "Backups are now password-protected") }
+            },
+            onDismiss = { passwordDialog = false },
+        )
+    }
+    pendingImport?.let { (uri, wasWrong) ->
+        EnterBackupPasswordDialog(
+            wrongPassword = wasWrong,
+            onSubmit = { password -> importBackup(uri, password) },
+            onDismiss = { pendingImport = null },
+        )
+    }
     if (frequencyDialog) {
         AlertDialog(
             onDismissRequest = { frequencyDialog = false },

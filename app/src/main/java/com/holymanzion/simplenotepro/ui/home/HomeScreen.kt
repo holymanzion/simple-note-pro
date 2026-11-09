@@ -117,6 +117,8 @@ fun HomeScreen(
     onNewNote: (checklist: Boolean, labelId: Long?) -> Unit,
     onEditLabels: () -> Unit,
     onOpenSettings: () -> Unit,
+    /** Shown below the notes; empty when there is no ad to show. */
+    bannerAd: @Composable () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
@@ -212,6 +214,7 @@ fun HomeScreen(
                     }
                 }
             },
+            bottomBar = { bannerAd() },
             snackbarHost = { SnackbarHost(snackbar) },
         ) { padding ->
             Box(

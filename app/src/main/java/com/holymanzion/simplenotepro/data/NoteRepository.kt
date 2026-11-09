@@ -101,6 +101,34 @@ class NoteRepository(
         return note
     }
 
+    /**
+     * "Snooze 1 hour" from the notification. A one-off reminder simply moves to [until];
+     * a repeating one gets an extra alert at [until] so its regular schedule stays put.
+     */
+    suspend fun snoozeReminder(id: Long, until: Long) {
+        val note = dao.get(id)?.note ?: return
+        if (note.isTrashed) return
+        if (note.repeat == null) setReminder(id, until, null) else reminders.scheduleSnooze(id, until)
+    }
+
+    /**
+     * "Done" from the notification. A one-off reminder is cleared; a repeating one has
+     * already moved to its next time, so only a pending snooze is dropped.
+     */
+    suspend fun completeReminder(id: Long) {
+        val note = dao.get(id)?.note ?: return
+        reminders.cancelSnooze(id)
+        if (note.repeat == null) setReminder(id, null, null)
+    }
+
+    /** Ticks or unticks one checklist item, e.g. from the home-screen widget. */
+    suspend fun toggleChecklistItem(noteId: Long, itemId: Long) {
+        val note = dao.get(noteId)?.note ?: return
+        if (!note.isChecklist || note.isTrashed) return
+        val items = note.items.map { if (it.id == itemId) it.copy(checked = !it.checked) else it }
+        dao.update(note.copy(checklist = ChecklistCodec.encode(items), updatedAt = now()))
+    }
+
     suspend fun duplicate(id: Long): Long? {
         val source = dao.get(id) ?: return null
         val time = now()

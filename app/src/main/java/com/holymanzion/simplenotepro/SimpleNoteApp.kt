@@ -1,11 +1,13 @@
 package com.holymanzion.simplenotepro
 
+import com.holymanzion.simplenotepro.ads.AdsManager
 import android.app.Application
 import android.content.Context
 import com.holymanzion.simplenotepro.backup.AutoBackupWorker
 import com.holymanzion.simplenotepro.data.AppDatabase
 import com.holymanzion.simplenotepro.data.AttachmentStore
 import com.holymanzion.simplenotepro.data.BackupManager
+import com.holymanzion.simplenotepro.data.BackupPasswordStore
 import com.holymanzion.simplenotepro.data.NoteRepository
 import com.holymanzion.simplenotepro.data.SettingsRepository
 import com.holymanzion.simplenotepro.lock.AppLock
@@ -21,8 +23,10 @@ class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     val repository = NoteRepository(AppDatabase.create(context), ReminderScheduler(context), AttachmentStore(context))
     val settings = SettingsRepository(context)
-    val backup = BackupManager(repository)
+    val backupPassword = BackupPasswordStore(context)
+    val backup = BackupManager(repository, backupPassword)
     val appLock = AppLock(isEnabled = { settings.settings.value.appLock })
+    val ads = AdsManager(context)
 }
 
 class SimpleNoteApp : Application() {

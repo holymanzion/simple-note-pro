@@ -202,7 +202,10 @@ class NotesWidget : GlanceAppWidget() {
                 combine(container.repository.notes, container.settings.settings) { notes, settings -> notes to settings.appLock }
                     .distinctUntilChanged()
                     .debounce(1_000)
-                    .collect { runCatching { NotesWidget().updateAll(appContext) } }
+                    .collect {
+                        runCatching { NotesWidget().updateAll(appContext) }
+                        runCatching { NoteWidget().updateAll(appContext) }
+                    }
             }
         }
     }

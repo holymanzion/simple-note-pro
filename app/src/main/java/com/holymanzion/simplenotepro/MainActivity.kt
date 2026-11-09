@@ -1,5 +1,6 @@
 package com.holymanzion.simplenotepro
 
+import com.holymanzion.simplenotepro.ads.BannerAd
 import android.content.Intent
 import android.graphics.Color
 import android.net.Uri
@@ -66,6 +67,8 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) handleIntent(intent)
+        // Google's consent form, only where the law requires it; then banner ads can load.
+        container.ads.gatherConsent(this)
 
         setContent {
             val settings by container.settings.settings.collectAsStateWithLifecycle()
@@ -169,6 +172,10 @@ class MainActivity : FragmentActivity() {
                     onNewNote = { checklist, labelId -> navController.navigate(Routes.editor(checklist = checklist, labelId = labelId)) },
                     onEditLabels = { navController.navigate(Routes.LABELS) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                    bannerAd = {
+                        val locked by container.appLock.locked.collectAsStateWithLifecycle()
+                        if (!locked) BannerAd(container.ads)
+                    },
                 )
             }
             composable(

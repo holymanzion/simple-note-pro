@@ -23,17 +23,23 @@ An offline note-taking app for Android, built with Kotlin, Jetpack Compose (Mate
 **Reminders**
 - Quick choices (later today, tomorrow morning, next week) or any date and time you pick.
 - **Repeat** daily, weekly, monthly or yearly. A repeating reminder keeps its time of day across daylight-saving changes, and if the phone was off when it was due, it moves on to the next time rather than firing a backlog.
+- **Snooze 1 hour** and **Done** buttons on every reminder notification. Snoozing a repeating reminder adds a one-off extra alert and leaves its schedule unchanged.
 - Reminders are set up again after the phone restarts. If notifications are turned off, the note and the Reminders view show a warning with a button to turn them on.
 
 **Privacy and safety**
 - **App lock.** Ask for your fingerprint, face or screen lock when the app opens and after it has been in the background for a minute. While the lock is on, notes are hidden from screenshots and the recent-apps screen.
 - **Automatic backups** to a folder you choose, daily or weekly, keeping the newest 7. Pick a folder that Google Drive or another cloud app syncs to keep an off-phone copy.
 - **Backup files.** Export everything (notes, labels and images) to a ZIP file and import it again. Importing adds to your notes rather than replacing them. JSON backups from version 1.0 still import.
+- **Backup password.** Optionally encrypt every backup (exported and automatic) with AES-256, in the standard encrypted-ZIP format that 7-Zip can also open. The password is stored on the phone, encrypted with an Android keystore key, so automatic backups can run unattended. Restoring on the same phone needs no prompt; on another phone the app asks for it.
 
 **Quick capture**
 - **Home-screen widget** showing your pinned notes (or your most recent), with buttons for a new note and a new checklist. Resizable. With the app lock on, it shows no note contents.
+- **Single-note widget:** pick one note or checklist when placing it. A checklist's items can be ticked right on the home screen. On Android 12+, touch and hold it to choose a different note.
 - **Quick Settings tile:** "New note" in the swipe-down panel. On a locked phone it asks you to unlock first.
 - **Launcher shortcuts** (long-press the app icon) for "New note" and "New checklist".
+
+**Ads**
+- A banner on the notes list, from Google AdMob. Nothing in the editor, widgets or lock screen, and no space is used until an ad has loaded. Where the law requires it, Google's consent form comes first, and **Settings › Ad privacy choices** changes the answer later.
 
 **Everything else**
 - **Share** a note as text.
@@ -45,11 +51,14 @@ An offline note-taking app for Android, built with Kotlin, Jetpack Compose (Mate
 ```bash
 ./gradlew bundleRelease    # app/build/outputs/bundle/release/app-release.aab — upload this to Play
 ./gradlew assembleRelease  # app/build/outputs/apk/release/app-<abi>-release.apk — install directly
+# Run these as two separate commands: the build tools refuse to make both in one run.
 ```
 
 `assembleRelease` makes one APK per processor type, because the text-in-photos reader is about 11 MB of native code per type. Almost every current phone needs **arm64-v8a** (about 14 MB). Older 32-bit phones need armeabi-v7a, and x86_64 is for emulators and Chromebooks. To check a connected phone, run `adb shell getprop ro.product.cpu.abi`. Google Play does this split itself from the `.aab`.
 
 Requires JDK 17+ and Android SDK 36. minSdk is 26 (Android 8.0).
+
+Release builds need your AdMob app ID and banner ad unit ID in `admobAppId` and `admobBannerUnitId` at the top of `app/build.gradle.kts`, and stop with an error if they're blank. Debug builds always use Google's test ads. Never tap your own live ads: AdMob bans accounts for it.
 
 ### Signing
 
@@ -71,7 +80,7 @@ When you create the app in Play Console, keep **Play App Signing** on (the defau
   ```bash
   ./gradlew testDebugUnitTest
   ```
-- **Device tests** (`app/src/androidTest`): 24 end-to-end tests of the user journeys (notes, checklists, search, labels, reminders, trash, undo, drag, swipe, images, text in photos, formatting, app lock, widget and tile, backups including 1,000-note speed checks), with a screenshot of each step, plus database upgrade tests from 1.0 and 1.1 and picture-rotation tests. The debug build installs as a separate app (`.debug` suffix), so tests never touch your real notes. Keep the phone unlocked and don't use it while they run.
+- **Device tests** (`app/src/androidTest`): 28 end-to-end tests of the user journeys (notes, checklists, search, labels, reminders including notification actions, trash, undo, drag, swipe, images, text in photos, formatting, app lock, widgets and tile, backups including passwords and 1,000-note speed checks), with a screenshot of each step, plus database upgrade tests from 1.0 and 1.1 and picture-rotation tests. The debug build installs as a separate app (`.debug` suffix), so tests never touch your real notes. Keep the phone unlocked and don't use it while they run.
   ```bash
   ./gradlew installDebug installDebugAndroidTest
   adb shell am instrument -w com.holymanzion.simplenotepro.debug.test/androidx.test.runner.AndroidJUnitRunner
@@ -84,6 +93,7 @@ The system prompts (notification permission, fingerprint, folder and photo picke
 ```
 app/src/main/java/com/holymanzion/simplenotepro/
 ├── data/        Room entities, DAO and migrations, repository, image storage and text reading, settings, ZIP backup, repeat rules
+├── ads/         Banner ad and Google consent form (AdMob)
 ├── backup/      Automatic backups (WorkManager)
 ├── lock/        App lock timing, fingerprint/screen-lock prompt, lock screen
 ├── reminder/    AlarmManager scheduling, notification receiver, boot receiver

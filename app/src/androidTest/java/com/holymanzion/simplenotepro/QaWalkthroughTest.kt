@@ -49,6 +49,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.MethodSorters
 import androidx.compose.ui.test.performTextInputSelection
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.text.TextRange
 import java.io.File
 import kotlin.system.measureTimeMillis
@@ -74,6 +75,7 @@ class QaWalkthroughTest {
         container.settings.update { AppSettings(themeMode = ThemeMode.DARK) }
         container.appLock.promptAutomatically = false
         container.appLock.unlock()
+        container.backupPassword.set(null)
         rule.waitForIdle()
     }
 
@@ -802,7 +804,10 @@ class QaWalkthroughTest {
         val context = rule.activity
         val widgets = android.appwidget.AppWidgetManager.getInstance(context)
             .installedProviders.filter { it.provider.packageName == context.packageName }
-        assertEquals(listOf("com.holymanzion.simplenotepro.widget.NotesWidgetReceiver"), widgets.map { it.provider.className })
+        assertEquals(
+            setOf("com.holymanzion.simplenotepro.widget.NotesWidgetReceiver", "com.holymanzion.simplenotepro.widget.NoteWidgetReceiver"),
+            widgets.map { it.provider.className }.toSet(),
+        )
 
         val tiles = context.packageManager.queryIntentServices(
             android.content.Intent(android.service.quicksettings.TileService.ACTION_QS_TILE).setPackage(context.packageName), 0,
@@ -825,5 +830,143 @@ class QaWalkthroughTest {
         )
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
         back()
+    }
+
+    // --- v1.3 features ---
+
+    /** Presses a reminder-notification button, as the notification would. */
+    private fun pressNotificationButton(noteId: Long, action: String) {
+        val context = rule.activity
+        context.sendBroadcast(
+            android.content.Intent(context, com.holymanzion.simplenotepro.reminder.ReminderActionReceiver::class.java)
+                .setAction(action)
+                .putExtra(com.holymanzion.simplenotepro.reminder.ReminderScheduler.EXTRA_NOTE_ID, noteId),
+        )
+    }
+
+    @Test
+    fun t25_notificationSnoozeAndDone_oneOffAndRepeating() {
+        val repo = container.repository
+        val alarms = com.holymanzion.simplenotepro.reminder.ReminderScheduler(rule.activity)
+        val actions = com.holymanzion.simplenotepro.reminder.ReminderActionReceiver
+        val hour = 3_600_000L
+        val tomorrow = System.currentTimeMillis() + 24 * hour
+
+        // One-off: snooze moves the reminder an hour from now; Done clears it.
+        val once = seed(Note(title = "Call mum", reminderAt = System.currentTimeMillis() - 1_000)).single()
+        val pressed = System.currentTimeMillis()
+        pressNotificationButton(once, actions.ACTION_SNOOZE)
+        rule.waitUntil(5_000) { runBlocking { repo.get(once) }!!.note.reminderAt.let { it != null && it > pressed } }
+        val snoozedTo = runBlocking { repo.get(once) }!!.note.reminderAt!!
+        assertTrue("snoozed about an hour", snoozedTo - pressed in (hour - 60_000)..(hour + 60_000))
+        assertTrue(alarms.isScheduled(once))
+        pressNotificationButton(once, actions.ACTION_DONE)
+        rule.waitUntil(5_000) { runBlocking { repo.get(once) }!!.note.reminderAt == null }
+        assertTrue("alarm cancelled", !alarms.isScheduled(once))
+
+        // Repeating: snooze adds an extra alert without moving the schedule; Done drops only that.
+        val weekly = seed(Note(title = "Bins out", reminderAt = tomorrow, reminderRepeat = "WEEKLY")).single()
+        pressNotificationButton(weekly, actions.ACTION_SNOOZE)
+        rule.waitUntil(5_000) { alarms.isSnoozed(weekly) }
+        assertEquals(tomorrow, runBlocking { repo.get(weekly) }!!.note.reminderAt)
+        pressNotificationButton(weekly, actions.ACTION_DONE)
+        rule.waitUntil(5_000) { !alarms.isSnoozed(weekly) }
+        val after = runBlocking { repo.get(weekly) }!!.note
+        assertEquals("schedule untouched", tomorrow, after.reminderAt)
+        assertEquals("WEEKLY", after.reminderRepeat)
+        assertTrue("next weekly alarm still set", alarms.isScheduled(weekly))
+
+        // Deleting a note cancels its snooze too.
+        pressNotificationButton(weekly, actions.ACTION_SNOOZE)
+        rule.waitUntil(5_000) { alarms.isSnoozed(weekly) }
+        runBlocking { repo.deleteForever(listOf(weekly)) }
+        assertTrue(!alarms.isSnoozed(weekly) && !alarms.isScheduled(weekly))
+    }
+
+    @Test
+    fun t26_backupPassword_encryptsAndAsksWhenNeeded() = runBlocking {
+        val repo = container.repository
+        val id = repo.save(Note(title = "Bank PIN hint", content = "the dog's birthday"), emptyList())
+        repo.addImage(id, testImage())
+        container.backupPassword.set("correct horse".toCharArray())
+
+        val bytes = java.io.ByteArrayOutputStream().also { container.backup.export(it) }.toByteArray()
+        // Every entry is encrypted, and the note text isn't readable in the file.
+        // (Read the ZIP's listing: zip4j rightly won't stream an encrypted entry without the password.)
+        val backupFile = File(rule.activity.cacheDir, "encrypted-backup-test.zip").apply { writeBytes(bytes) }
+        val headers = net.lingala.zip4j.ZipFile(backupFile).use { it.fileHeaders.toList() }
+        backupFile.delete()
+        assertEquals("notes.json and the picture", 2, headers.size)
+        assertTrue(headers.all { it.isEncrypted })
+        assertTrue("dog's birthday" !in String(bytes, Charsets.ISO_8859_1))
+
+        // Same phone: the saved password is used, no prompt.
+        repo.deleteForever(listOf(id))
+        assertEquals(1, container.backup.import(java.io.ByteArrayInputStream(bytes)))
+
+        // Another phone (no saved password): it asks, rejects a wrong one, accepts the right one.
+        container.backupPassword.set(null)
+        val asked = runCatching { container.backup.import(java.io.ByteArrayInputStream(bytes)) }.exceptionOrNull()
+        assertTrue("asks for password, got $asked", asked is com.holymanzion.simplenotepro.data.BackupPasswordException && !asked.wrongPassword)
+        val wrong = runCatching { container.backup.import(java.io.ByteArrayInputStream(bytes), "wrong guess".toCharArray()) }.exceptionOrNull()
+        assertTrue("wrong password reported, got $wrong", wrong is com.holymanzion.simplenotepro.data.BackupPasswordException && wrong.wrongPassword)
+        assertEquals("nothing imported by failed tries", 1, repo.getAll().size)
+        assertEquals(1, container.backup.import(java.io.ByteArrayInputStream(bytes), "correct horse".toCharArray()))
+        val restored = repo.getAll().first { it.attachments.isNotEmpty() }
+        assertEquals("the dog's birthday", restored.note.content)
+
+        // Without a password, backups stay plain ZIPs.
+        val plain = java.io.ByteArrayOutputStream().also { container.backup.export(it) }.toByteArray()
+        java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(plain)).use { assertEquals("notes.json", it.nextEntry?.name) }
+    }
+
+    @Test
+    fun t27_backupPasswordSettingsDialog() {
+        openDrawerItem("Settings")
+        waitForText("Backup password")
+        rule.onNodeWithText("Backup password").performScrollTo().performClick()
+        rule.onNodeWithTag("backup-password").performTextInput("short")
+        waitForText("At least 8 characters")
+        rule.onNodeWithText("Save").assertIsNotEnabled()
+        rule.onNodeWithTag("backup-password").performTextInput("enough")
+        rule.onNodeWithTag("backup-password-confirm").performTextInput("shortenough")
+        shot("27a_backup_password_dialog")
+        rule.onNodeWithText("Save").performClick()
+        waitForText("On · exported and automatic backups", substring = true)
+        assertEquals("shortenough", container.backupPassword.get()?.let { String(it) })
+        shot("27b_backup_password_on")
+        container.backupPassword.set(null)
+    }
+
+    @Test
+    fun t28_singleNoteWidget_pickerSavesChoice_andItemsToggle() {
+        val context = rule.activity
+        val provider = android.appwidget.AppWidgetManager.getInstance(context).installedProviders
+            .single { it.provider.className == "com.holymanzion.simplenotepro.widget.NoteWidgetReceiver" }
+        assertEquals("com.holymanzion.simplenotepro.widget.NoteWidgetConfigActivity", provider.configure?.className)
+
+        val items = listOf(ChecklistItem(1, "Milk"), ChecklistItem(2, "Bread"))
+        val id = seed(Note(title = "Shopping", isChecklist = true, checklist = ChecklistCodec.encode(items))).single()
+        seed(Note(title = "Something else"))
+
+        // The picker the launcher opens when the widget is placed.
+        val fakeWidgetId = 987654
+        val scenario = androidx.test.core.app.ActivityScenario.launchActivityForResult<com.holymanzion.simplenotepro.widget.NoteWidgetConfigActivity>(
+            android.content.Intent(context, com.holymanzion.simplenotepro.widget.NoteWidgetConfigActivity::class.java)
+                .putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_ID, fakeWidgetId),
+        )
+        waitForText("Choose a note for the widget")
+        waitForText("Shopping")
+        Thread.sleep(1_500) // Let the activity-open animation finish, or the screenshot catches a blank window.
+        shot("28a_widget_note_picker")
+        rule.onNodeWithText("Shopping").performClick()
+        rule.waitUntil(5_000) { scenario.state == androidx.lifecycle.Lifecycle.State.DESTROYED }
+        assertEquals(android.app.Activity.RESULT_OK, scenario.result.resultCode)
+        assertEquals(id, com.holymanzion.simplenotepro.widget.NoteWidgetPrefs.noteFor(context, fakeWidgetId))
+
+        // Ticking from the widget updates the note.
+        runBlocking { container.repository.toggleChecklistItem(id, 2) }
+        assertEquals(listOf(false, true), runBlocking { container.repository.get(id) }!!.note.items.map { it.checked })
+        com.holymanzion.simplenotepro.widget.NoteWidgetPrefs.remove(context, intArrayOf(fakeWidgetId))
     }
 }

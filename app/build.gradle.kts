@@ -17,6 +17,13 @@ val keystoreProperties = Properties().apply {
 }
 val hasUploadKey = keystorePropertiesFile.exists()
 
+// AdMob IDs. They aren't secret: they ship inside every copy of the app.
+// Debug builds always use Google's test IDs. Never tap your own live ads: AdMob bans accounts for it.
+val admobAppId = "ca-app-pub-8476254864158495~5173450877"        // AdMob › Apps › App settings › App ID
+val admobBannerUnitId = "ca-app-pub-8476254864158495/1888811982" // AdMob › Apps › Ad units › "Notes list banner"
+val testAdmobAppId = "ca-app-pub-3940256099942544~3347511713"
+val testBannerUnitId = "ca-app-pub-3940256099942544/9214589741"
+
 android {
     namespace = "com.holymanzion.simplenotepro"
     compileSdk = 36
@@ -25,8 +32,8 @@ android {
         applicationId = "com.holymanzion.simplenotepro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 7
-        versionName = "1.2.0"
+        versionCode = 9
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -46,9 +53,14 @@ android {
         debug {
             // Installs beside the release app, so tests never touch real notes.
             applicationIdSuffix = ".debug"
+            manifestPlaceholders["admobAppId"] = testAdmobAppId
+            buildConfigField("String", "BANNER_AD_UNIT_ID", "\"$testBannerUnitId\"")
         }
         release {
             isMinifyEnabled = true
+            // Blank IDs (not set up yet) fall back to test ads; checkAdmobIds stops those reaching Play.
+            manifestPlaceholders["admobAppId"] = admobAppId.ifBlank { testAdmobAppId }
+            buildConfigField("String", "BANNER_AD_UNIT_ID", "\"${admobBannerUnitId.ifBlank { testBannerUnitId }}\"")
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -66,7 +78,9 @@ android {
     // APKs you install directly: the Play bundle (.aab) is split by Play automatically.
     splits {
         abi {
-            isEnable = true
+            // Play splits the .aab itself, and AGP fails if APK splits are on while bundling
+            // (issuetracker.google.com/402800800), so build the bundle and the APKs in separate runs.
+            isEnable = gradle.startParameter.taskNames.none { it.contains("bundle", ignoreCase = true) }
             reset()
             include("arm64-v8a", "armeabi-v7a", "x86_64")
             isUniversalApk = false
@@ -135,6 +149,9 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     implementation(libs.mlkit.text.recognition)
+    implementation(libs.zip4j)
+    implementation(libs.play.services.ads)
+    implementation(libs.user.messaging.platform)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
@@ -158,3 +175,13 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.ui.test.manifest)
 }
+
+// A Play upload with Google's test ad IDs would show only test ads and earn nothing.
+val checkAdmobIds by tasks.registering {
+    doLast {
+        check(admobAppId.startsWith("ca-app-pub-") && "~" in admobAppId && admobBannerUnitId.startsWith("ca-app-pub-") && "/" in admobBannerUnitId) {
+            "Set admobAppId and admobBannerUnitId at the top of app/build.gradle.kts before building a release."
+        }
+    }
+}
+tasks.matching { it.name == "preReleaseBuild" }.configureEach { dependsOn(checkAdmobIds) }

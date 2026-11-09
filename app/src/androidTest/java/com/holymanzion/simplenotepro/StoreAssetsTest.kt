@@ -170,7 +170,7 @@ class StoreAssetsTest {
         rule.waitForIdle()
         rule.onAllNodesWithText("Settings").onLast().performClick()
         waitForText("App lock")
-        shot("07-private", "Private by design", "App lock, backups, no account, no ads")
+        shot("07-private", "Private by design", "App lock, encrypted backups, no account")
         theme(ThemeMode.LIGHT)
     }
 

@@ -6,4 +6,6 @@
     <string name="widget_label">Notes</string>
     <string name="widget_description">Your pinned or most recent notes, with quick buttons for a new note or checklist.</string>
     <string name="tile_new_note">New note</string>
+    <string name="note_widget_label">Single note</string>
+    <string name="note_widget_description">One note or checklist on your home screen. Tick checklist items right there.</string>
 </resources>

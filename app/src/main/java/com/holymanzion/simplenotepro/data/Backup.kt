@@ -4,34 +4,48 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import net.lingala.zip4j.exception.ZipException
+import net.lingala.zip4j.io.inputstream.ZipInputStream
+import net.lingala.zip4j.io.outputstream.ZipOutputStream
+import net.lingala.zip4j.model.ZipParameters
+import net.lingala.zip4j.model.enums.AesKeyStrength
+import net.lingala.zip4j.model.enums.CompressionMethod
+import net.lingala.zip4j.model.enums.EncryptionMethod
 import java.io.BufferedInputStream
 import java.io.InputStream
 import java.io.OutputStream
-import java.util.zip.ZipEntry
-import java.util.zip.ZipInputStream
-import java.util.zip.ZipOutputStream
 
 /**
  * Backups are a ZIP holding `notes.json` plus the note images under `attachments/`.
+ * With a backup password set, every entry is AES-256 encrypted (standard WinZip AES, so
+ * 7-Zip and similar tools can open it with the password too).
  * Importing merges into the current notes rather than replacing them, so restoring the
  * same file twice creates duplicates, never data loss. Plain `.json` backups from
  * version 1.0 still import.
  */
-class BackupManager(private val repository: NoteRepository) {
+class BackupManager(
+    private val repository: NoteRepository,
+    private val passwords: BackupPasswordStore? = null,
+) {
     private val store get() = repository.attachmentStore
 
-    /** Writes a ZIP backup to [out] and returns the number of notes in it. */
-    suspend fun export(out: OutputStream): Int {
+    /**
+     * Writes a ZIP backup to [out] and returns the number of notes in it. Encrypted when
+     * [password] is given, which defaults to the backup password set in Settings.
+     */
+    suspend fun export(out: OutputStream, password: CharArray? = passwords?.get()): Int {
         val notes = repository.getAll()
         withContext(Dispatchers.IO) {
-            ZipOutputStream(out.buffered()).use { zip ->
-                zip.putNextEntry(ZipEntry(NOTES_ENTRY))
+            val zip = if (password != null) ZipOutputStream(out.buffered(), password) else ZipOutputStream(out.buffered())
+            zip.use {
+                zip.putNextEntry(entry(NOTES_ENTRY, password, CompressionMethod.DEFLATE))
                 zip.write(notesJson(notes).toString(2).toByteArray())
                 zip.closeEntry()
                 notes.flatMap { it.attachments }.forEach { attachment ->
                     val file = store.file(attachment.fileName)
                     if (!file.exists()) return@forEach
-                    zip.putNextEntry(ZipEntry(ATTACHMENTS_DIR + attachment.fileName))
+                    // JPEGs are already compressed; storing them as-is is just as small and faster.
+                    zip.putNextEntry(entry(ATTACHMENTS_DIR + attachment.fileName, password, CompressionMethod.STORE, size = file.length()))
                     file.inputStream().use { it.copyTo(zip) }
                     zip.closeEntry()
                 }
@@ -40,30 +54,57 @@ class BackupManager(private val repository: NoteRepository) {
         return notes.size
     }
 
-    /** Returns the number of notes imported. Throws if the file is not a valid backup. */
-    suspend fun import(input: InputStream): Int {
+    /** [size] is required for STORE entries: an uncompressed entry's size goes in its header. */
+    private fun entry(name: String, password: CharArray?, method: CompressionMethod, size: Long? = null) = ZipParameters().apply {
+        fileNameInZip = name
+        compressionMethod = method
+        if (size != null) entrySize = size
+        if (password != null) {
+            isEncryptFiles = true
+            encryptionMethod = EncryptionMethod.AES
+            aesKeyStrength = AesKeyStrength.KEY_STRENGTH_256
+        }
+    }
+
+    /**
+     * Returns the number of notes imported. A password-protected backup is opened with
+     * [password], or else the backup password saved on this phone; if neither works this
+     * throws [BackupPasswordException] before anything is imported, so the caller can ask
+     * for the password and try again. Throws other exceptions for files that aren't backups.
+     */
+    suspend fun import(input: InputStream, password: CharArray? = null): Int {
         val buffered = BufferedInputStream(input)
         buffered.mark(4)
         val isZip = buffered.read() == 'P'.code && buffered.read() == 'K'.code
         buffered.reset()
 
+        val effectivePassword = password ?: passwords?.get()
         val files = mutableMapOf<String, String>() // name in backup -> name in store
         val json = withContext(Dispatchers.IO) {
             if (!isZip) return@withContext buffered.bufferedReader().use { it.readText() }
             var notesText: String? = null
-            ZipInputStream(buffered).use { zip ->
-                generateSequence { zip.nextEntry }.forEach { entry ->
-                    when {
-                        entry.name == NOTES_ENTRY -> notesText = zip.readBytes().decodeToString()
-                        // Only plain names under attachments/, so a crafted "../" entry can't escape.
-                        entry.name.startsWith(ATTACHMENTS_DIR) && !entry.isDirectory -> {
-                            val name = entry.name.removePrefix(ATTACHMENTS_DIR)
-                            if (name.isNotEmpty() && '/' !in name && '\\' !in name && name != "..") {
-                                files[name] = store.importBytes(zip, name.substringAfterLast('.', "jpg"))
+            try {
+                ZipInputStream(buffered, effectivePassword).use { zip ->
+                    generateSequence { zip.nextEntry }.forEach { entry ->
+                        if (entry.isEncrypted && effectivePassword == null) throw BackupPasswordException(wrongPassword = false)
+                        val name = entry.fileName
+                        when {
+                            name == NOTES_ENTRY -> notesText = zip.readBytes().decodeToString()
+                            // Only plain names under attachments/, so a crafted "../" entry can't escape.
+                            name.startsWith(ATTACHMENTS_DIR) && !entry.isDirectory -> {
+                                val file = name.removePrefix(ATTACHMENTS_DIR)
+                                if (file.isNotEmpty() && '/' !in file && '\\' !in file && file != "..") {
+                                    files[file] = store.importBytes(zip, file.substringAfterLast('.', "jpg"))
+                                }
                             }
                         }
                     }
                 }
+            } catch (e: ZipException) {
+                if (e.type != ZipException.Type.WRONG_PASSWORD) throw e
+                // A password the user typed is simply wrong; a saved one that doesn't fit
+                // (the backup came from another phone) means we need to ask.
+                throw BackupPasswordException(wrongPassword = password != null)
             }
             notesText ?: error("No notes.json in backup")
         }

@@ -69,13 +69,14 @@
 <body>
 
 <h1>Privacy Policy</h1>
-<p class="updated">Simple Note Pro &middot; Last updated 3 October 2026</p>
+<p class="updated">Simple Note Pro &middot; Last updated 9 November 2026</p>
 
 <div class="callout">
   <strong>In short:</strong> your notes, checklists, pictures and reminders are stored only
-  on your phone. There is no account, no advertising and no tracking by the developer.
-  The one exception is Google's on-device text reader, which sends Google basic,
-  anonymous usage statistics. It never sends your pictures or your notes.
+  on your phone, and there is no account. From version 1.4.0 the app shows a banner ad on
+  the notes list, provided by Google AdMob, which collects some device data to show and
+  measure ads (section 4). Google's on-device text reader also sends Google basic usage
+  statistics (section 3). Neither of them receives your notes or your pictures.
 </div>
 
 <h2>1. Who this covers</h2>
@@ -97,8 +98,7 @@
 <ul>
   <li>your name, email address, phone number or any account details;</li>
   <li>your location, contacts or calendar;</li>
-  <li>the contents of your notes or pictures;</li>
-  <li>advertising identifiers. The app contains no ads.</li>
+  <li>the contents of your notes or pictures.</li>
 </ul>
 
 <h2>3. Google ML Kit (text in photos)</h2>
@@ -124,17 +124,47 @@
   Google uses this for diagnostics and usage analytics, sends it encrypted (HTTPS), and states
   that it does not transfer it to third parties. Its handling is governed by the
   <a href="https://policies.google.com/privacy">Google Privacy Policy</a>. This is why the app
-  holds Android's internet permission. The app itself uses no network connection.
+  holds Android's internet permission. Apart from this and the ads described in section 4, the
+  app uses no network connection.
 </p>
 
-<h2>4. Permissions and what they are for</h2>
+<h2>4. Advertising (Google AdMob)</h2>
+<p>
+  From version 1.4.0 the app is funded by a banner ad on the notes list, served by
+  <a href="https://admob.google.com">Google AdMob</a>. Ads never appear in the note editor or
+  the home-screen widgets. The developer doesn't receive information that identifies you, and
+  <strong>AdMob is never given the contents of your notes, checklists or pictures.</strong>
+</p>
+<p>
+  According to <a href="https://developers.google.com/admob/android/privacy/play-data-disclosure">Google's
+  disclosure for its ads software</a>, AdMob automatically collects and shares the following, sent
+  encrypted (HTTPS), for advertising, analytics and fraud prevention:
+</p>
+<ul>
+  <li>your IP address, which may be used to estimate your general location;</li>
+  <li>how you interact with the app and its ads (app launches, taps, video views);</li>
+  <li>diagnostic information (such as app launch time and performance);</li>
+  <li>device and account identifiers: the Android advertising ID, the app set ID and, where applicable, other identifiers.</li>
+</ul>
+<p>
+  Where the law requires it (for example in the EEA, the UK and Switzerland) the app asks for
+  your choice through Google's consent form before any ad is requested. You can change it at any
+  time in Settings &rsaquo; Ad privacy choices, which appears where this applies. You can also
+  reset or delete your advertising ID in your phone's settings. Google's handling of this data
+  is governed by the <a href="https://policies.google.com/privacy">Google Privacy Policy</a>, and
+  <a href="https://policies.google.com/technologies/partner-sites">this page explains how Google
+  uses information from apps that use its services</a>.
+</p>
+
+<h2>5. Permissions and what they are for</h2>
 <table>
   <tr><th>Permission</th><th>Used for</th></tr>
   <tr><td>Notifications</td><td>Showing the reminders you set. You can turn them off in Android settings at any time.</td></tr>
   <tr><td>Alarms &amp; reminders (exact alarms)</td><td>Making reminders go off at the minute you chose. Without it they may arrive a few minutes late.</td></tr>
   <tr><td>Run at startup</td><td>Setting your reminders again after the phone restarts.</td></tr>
   <tr><td>Fingerprint / biometrics</td><td>The optional app lock. Android handles the check itself: the app only learns whether it succeeded and never receives fingerprint or face data.</td></tr>
-  <tr><td>Internet and network state</td><td>Google ML Kit's usage statistics described in section 3.</td></tr>
+  <tr><td>Internet and network state</td><td>Showing ads (section 4) and Google ML Kit's usage statistics (section 3).</td></tr>
+  <tr><td>Advertising ID</td><td>Added by Google's ads software, to show and measure ads (section 4).</td></tr>
   <tr><td>Wake lock and foreground service</td><td>Added by Android's background-work library, which runs automatic backups reliably.</td></tr>
 </table>
 <p>
@@ -143,13 +173,20 @@
   only receives the pictures you choose.
 </p>
 
-<h2>5. Backups and sharing are under your control</h2>
+<h2>6. Backups and sharing are under your control</h2>
 <ul>
   <li>
     <strong>Exported backups</strong> and <strong>automatic backups</strong> are ZIP files saved
     only where you choose, such as a folder on your phone or a folder synced by a cloud
     service. If you choose a cloud-synced folder, that service's own privacy policy applies to
-    the copy it holds. Backup files are not encrypted, so keep them somewhere you trust.
+    the copy it holds.
+  </li>
+  <li>
+    <strong>Backup password.</strong> If you set one (Settings &rsaquo; Backup password), every
+    backup is encrypted with AES-256 and can only be opened with that password. The password is
+    kept on your phone, protected by Android's keystore, so automatic backups can run. It is never
+    sent anywhere and cannot be recovered if you forget it. Without a password, backup files are
+    not encrypted, so keep them somewhere you trust.
   </li>
   <li>
     <strong>Sharing</strong> a note or picture sends it only to the app you pick in Android's
@@ -161,7 +198,7 @@
   </li>
 </ul>
 
-<h2>6. Keeping and deleting your data</h2>
+<h2>7. Keeping and deleting your data</h2>
 <p>
   Your data stays on your device until you delete it. Notes moved to the trash are deleted
   permanently after 30 days, or immediately if you empty the trash. Uninstalling the app
@@ -169,27 +206,28 @@
   wherever you saved them.
 </p>
 
-<h2>7. Security</h2>
+<h2>8. Security</h2>
 <p>
   Your notes are kept in storage that Android reserves for this app, so other apps cannot read
   it, and your phone's own device encryption protects it at rest. The optional app lock adds a
   fingerprint, face or screen-lock check before the app opens.
 </p>
 
-<h2>8. Children</h2>
+<h2>9. Children</h2>
 <p>
   The app is a general-purpose note-taking tool and is not directed at children under 13. The
-  developer collects no personal information from anyone, including children.
+  developer does not itself collect personal information from anyone, including children. The
+  data collected for ads is described in section 4.
 </p>
 
-<h2>9. Changes to this policy</h2>
+<h2>10. Changes to this policy</h2>
 <p>
   If the app's handling of information changes, this page will be updated and the date at the
   top revised. The current version is always available at
   <a href="https://holymanzion.github.io/simple-note-pro/privacy_policy.html">holymanzion.github.io/simple-note-pro/privacy_policy.html</a>.
 </p>
 
-<h2>10. Contact</h2>
+<h2>11. Contact</h2>
 <p>
   Questions about this policy can be sent to
   <a href="mailto:holymanzion@gmail.com">holymanzion@gmail.com</a>.

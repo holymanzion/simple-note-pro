@@ -1,7 +1,7 @@
 # Play Console submission: Simple Note Pro
 
 Copy-paste material for the store listing, plus suggested answers to the declarations Play
-requires. Everything here matches what version 1.2.0 actually does. Check it still does
+requires. Everything here matches what version 1.4.0 actually does. Check it still does
 before you submit a later version.
 
 ---
@@ -12,8 +12,8 @@ before you submit a later version.
 | --- | --- |
 | App name (30 char max) | `Simple Note Pro` |
 | Package | `com.holymanzion.simplenotepro` |
-| Version | 1.2.0 (versionCode 7) |
-| Upload file | `SimpleNotePro-v1.2.0.aab` |
+| Version | 1.4.0 (versionCode 9) |
+| Upload file | `SimpleNotePro-v1.4.0.aab` |
 | Category | Productivity |
 | Tags | Notes, To-do list, Productivity |
 | Contact email | holymanzion@gmail.com |
@@ -25,17 +25,17 @@ before you submit a later version.
 ## Short description (80 characters max)
 
 ```
-Notes, checklists, reminders and photos. No account, no ads, kept on your phone.
+Notes, checklists, reminders and photos. No account, kept on your phone.
 ```
 
-*(80 characters.)*
+*(72 characters.)*
 
 ---
 
 ## Full description (4000 characters max)
 
 ```
-Simple Note Pro is a fast, private place for everything you want to remember: notes, checklists, reminders and photos. There's no account to create and no ads, and your notes are stored on your phone, not on someone else's server.
+Simple Note Pro is a fast, private place for everything you want to remember: notes, checklists, reminders and photos. There's no account to create, and your notes are stored on your phone, not on someone else's server.
 
 WRITE IT DOWN, YOUR WAY
 • Text notes with simple formatting: headings, bold, italic, strikethrough, bulleted and numbered lists
@@ -52,6 +52,7 @@ PHOTOS, WITH SEARCHABLE TEXT
 NEVER FORGET
 • Reminders for any date and time, or quick picks like "tomorrow morning"
 • Repeat daily, weekly, monthly or yearly
+• Snooze for an hour or mark done right from the notification
 • Reminders survive restarts, and the app warns you if notifications are turned off
 
 STAY ORGANISED
@@ -64,16 +65,60 @@ STAY ORGANISED
 
 CAPTURE IN A SECOND
 • Home-screen widget with your pinned or recent notes
+• Single-note widget: tick off checklist items right on your home screen
 • "New note" tile in Quick Settings
 • App shortcuts for a new note or checklist
 • Share text or a picture from any app to save it as a note
 
-PRIVATE BY DESIGN
-• No account, no sign-in, no ads
+YOUR NOTES STAY YOURS
+• No account, no sign-in
+• Your notes and photos are never shared with advertisers
 • Optional app lock with fingerprint, face or screen lock, which also hides notes from screenshots and recent apps
 • Automatic backups to a folder you choose (for example one synced by Google Drive), and ZIP export and import
+• Optional backup password: backups are encrypted with AES-256
 
 Light and dark themes, Material You colours on Android 12 and newer.
+
+Free to use, with a small banner ad on the notes list.
+```
+
+---
+
+## Release notes
+
+### 1.4.0
+
+```
+<en-US>
+Simple Note Pro now shows a small banner ad on the notes list, which helps keep the app free. Ads never appear while you write, and your notes and photos stay on your phone.
+</en-US>
+```
+
+### 1.3.0
+
+```
+<en-US>
+New in this update:
+• Snooze or mark done right from a reminder notification
+• Single-note widget: tick off checklist items on your home screen
+• Backup password: encrypt your backups with AES-256
+</en-US>
+```
+
+### 1.2.0 (first release)
+
+```
+<en-US>
+Welcome to Simple Note Pro!
+• Notes and checklists with formatting, undo and drag-to-reorder
+• Reminders that can repeat daily, weekly, monthly or yearly
+• Photos in notes, with the text inside them searchable
+• Labels, colours, pins, archive, and trash with undo
+• App lock with fingerprint or screen lock
+• Automatic backups to a folder you choose
+• Home-screen widget and Quick Settings tile
+No account, no ads. Your notes stay on your phone.
+</en-US>
 ```
 
 ---
@@ -97,27 +142,30 @@ then pull `files/store` from the debug app.
 
 ## Data safety (suggested answers)
 
-The app itself sends nothing. Notes, pictures and their text never leave the phone. The one
-network user is **Google ML Kit** (text in photos), which sends Google anonymous usage
-statistics, as described in
+Notes, pictures and their text never leave the phone. Two Google libraries use the network:
+**Google Mobile Ads** (banner ads, from 1.4.0), described in
+[Google's AdMob data disclosure](https://developers.google.com/admob/android/privacy/play-data-disclosure),
+and **Google ML Kit** (text in photos), described in
 [Google's ML Kit data disclosure](https://developers.google.com/ml-kit/android-data-disclosure).
 Google says you, the developer, are responsible for the answers. These are the cautious ones:
 
 | Question | Answer |
 | --- | --- |
-| Does your app collect or share any of the required user data types? | **Yes** (ML Kit diagnostics) |
-| Is all of the user data collected by your app encrypted in transit? | **Yes** (ML Kit uses HTTPS) |
+| Does your app collect or share any of the required user data types? | **Yes** (ads and ML Kit diagnostics) |
+| Is all of the user data collected by your app encrypted in transit? | **Yes** (both use HTTPS) |
 | Do you provide a way for users to request that their data is deleted? | **No**. The developer holds no user data. Notes are deleted in the app or by uninstalling it. |
 
 Data types to declare:
 
 | Data type | Collected | Shared | Ephemeral | Required | Purpose |
 | --- | --- | --- | --- | --- | --- |
-| App info and performance → **Diagnostics** | Yes | No | No | Yes | Analytics |
-| Device or other IDs → **Device or other IDs** | Yes | No | No | Yes | Analytics |
+| Location → **Approximate location** (from IP address) | Yes | Yes | No | Yes | Advertising or marketing, Analytics, Fraud prevention |
+| App activity → **App interactions** | Yes | Yes | No | Yes | Advertising or marketing, Analytics, Fraud prevention |
+| App info and performance → **Diagnostics** | Yes | Yes | No | Yes | Advertising or marketing, Analytics, Fraud prevention |
+| Device or other IDs → **Device or other IDs** | Yes | Yes | No | Yes | Advertising or marketing, Analytics, Fraud prevention |
 
-Everything else is **not collected**: personal info, location, messages, photos and videos,
-files and docs, contacts, calendar, app activity, web browsing, financial and health info.
+Everything else is **not collected**: personal info, precise location, messages, photos and
+videos, files and docs, contacts, calendar, web browsing, financial and health info.
 Photos are processed on the device and never sent, so they are not "collected" in Play's sense.
 
 ---
@@ -126,7 +174,8 @@ Photos are processed on the device and never sent, so they are not "collected" i
 
 | Section | Answer |
 | --- | --- |
-| Ads | **No**, the app contains no ads |
+| Ads | **Yes**, the app contains ads (banner on the notes list) |
+| Advertising ID | **Yes**, used for **Advertising or marketing** (added by Google Mobile Ads) |
 | App access | **All functionality is available without special access** (no login; the app lock is optional) |
 | Content rating | Fill in the questionnaire as a productivity / utility app: no violence, sexual content, gambling, drugs or user-to-user communication. Expect **Everyone / PEGI 3** |
 | Target audience | **13 and over** is the simplest choice. Choosing under 13 brings in the Families policy, which the app isn't set up for |

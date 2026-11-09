@@ -15,6 +15,11 @@
         android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.SimpleNotePro">
 
+        <!-- Set per build type in app/build.gradle.kts (test IDs in debug builds). -->
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="${admobAppId}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -51,6 +56,11 @@
             android:name=".reminder.ReminderReceiver"
             android:exported="false" />
 
+        <!-- "Snooze 1 hour" / "Done" buttons on reminder notifications. -->
+        <receiver
+            android:name=".reminder.ReminderActionReceiver"
+            android:exported="false" />
+
         <!-- Home-screen widget. -->
         <receiver
             android:name=".widget.NotesWidgetReceiver"
@@ -63,6 +73,28 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/notes_widget_info" />
         </receiver>
+
+        <!-- Single-note widget, and the screen that picks its note. -->
+        <receiver
+            android:name=".widget.NoteWidgetReceiver"
+            android:exported="true"
+            android:label="@string/note_widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/note_widget_info" />
+        </receiver>
+        <activity
+            android:name=".widget.NoteWidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.SimpleNotePro">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
 
         <!-- "New note" tile in the Quick Settings panel. -->
         <service
