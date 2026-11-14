@@ -31,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.ColorLens
 import androidx.compose.material.icons.outlined.DarkMode
@@ -203,6 +204,13 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
                 subtitle = "Keep completed checklist items out of the way",
                 checked = settings.checkedToBottom,
                 onClick = { container.settings.update { it.copy(checkedToBottom = !it.checkedToBottom) } },
+            )
+            SettingRow(
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
+                title = "Open notes in reading mode",
+                subtitle = "Read without the keyboard popping up; tap Edit to make changes",
+                checked = settings.readingMode,
+                onClick = { container.settings.update { it.copy(readingMode = !it.readingMode) } },
             )
 
             SectionHeader("Security")

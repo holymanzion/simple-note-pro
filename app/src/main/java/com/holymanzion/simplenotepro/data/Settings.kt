@@ -25,6 +25,8 @@ data class AppSettings(
     val gridLayout: Boolean = true,
     val sortOrder: SortOrder = SortOrder.MODIFIED,
     val checkedToBottom: Boolean = true,
+    /** Existing notes open read-only, with an Edit button, instead of straight into editing. */
+    val readingMode: Boolean = true,
     val appLock: Boolean = false,
     /** Folder (a SAF tree URI) that automatic backups are written to. */
     val backupFolder: String? = null,
@@ -49,6 +51,7 @@ class SettingsRepository(context: Context) {
             .putBoolean(KEY_GRID, next.gridLayout)
             .putString(KEY_SORT, next.sortOrder.name)
             .putBoolean(KEY_CHECKED_BOTTOM, next.checkedToBottom)
+            .putBoolean(KEY_READING_MODE, next.readingMode)
             .putBoolean(KEY_APP_LOCK, next.appLock)
             .putString(KEY_BACKUP_FOLDER, next.backupFolder)
             .putString(KEY_BACKUP_FREQUENCY, next.backupFrequency.name)
@@ -63,6 +66,7 @@ class SettingsRepository(context: Context) {
         gridLayout = prefs.getBoolean(KEY_GRID, true),
         sortOrder = enumOrDefault(prefs.getString(KEY_SORT, null), SortOrder.MODIFIED),
         checkedToBottom = prefs.getBoolean(KEY_CHECKED_BOTTOM, true),
+        readingMode = prefs.getBoolean(KEY_READING_MODE, true),
         appLock = prefs.getBoolean(KEY_APP_LOCK, false),
         backupFolder = prefs.getString(KEY_BACKUP_FOLDER, null),
         backupFrequency = enumOrDefault(prefs.getString(KEY_BACKUP_FREQUENCY, null), BackupFrequency.OFF),
@@ -79,6 +83,7 @@ class SettingsRepository(context: Context) {
         const val KEY_GRID = "grid_layout"
         const val KEY_SORT = "sort_order"
         const val KEY_CHECKED_BOTTOM = "checked_to_bottom"
+        const val KEY_READING_MODE = "reading_mode"
         const val KEY_APP_LOCK = "app_lock"
         const val KEY_BACKUP_FOLDER = "backup_folder"
         const val KEY_BACKUP_FREQUENCY = "backup_frequency"

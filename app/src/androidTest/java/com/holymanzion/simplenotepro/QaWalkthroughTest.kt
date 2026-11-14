@@ -72,7 +72,7 @@ class QaWalkthroughTest {
         val repo = container.repository
         repo.deleteForever(repo.getAll().map { it.note.id })
         repo.labels.first().forEach { repo.deleteLabel(it.id) }
-        container.settings.update { AppSettings(themeMode = ThemeMode.DARK) }
+        container.settings.update { AppSettings(themeMode = ThemeMode.DARK, readingMode = false) }
         container.appLock.promptAutomatically = false
         container.appLock.unlock()
         container.backupPassword.set(null)
@@ -968,5 +968,62 @@ class QaWalkthroughTest {
         runBlocking { container.repository.toggleChecklistItem(id, 2) }
         assertEquals(listOf(false, true), runBlocking { container.repository.get(id) }!!.note.items.map { it.checked })
         com.holymanzion.simplenotepro.widget.NoteWidgetPrefs.remove(context, intArrayOf(fakeWidgetId))
+    }
+
+    @Test
+    fun t29_readingMode_opensReadOnly_editButtonSwitchesToEditing() {
+        container.settings.update { it.copy(readingMode = true) }
+        val textId = seed(Note(title = "Sermon notes", content = "Plan **ahead**\n- Give thanks\nSee https://example.com")).single()
+        val listItems = listOf(ChecklistItem(1, "Milk"), ChecklistItem(2, "Bread"))
+        val listId = seed(Note(title = "Shop", isChecklist = true, checklist = ChecklistCodec.encode(listItems))).single()
+        seed(Note(title = ""))
+
+        // A text note opens read-only: formatting marks hidden, no text fields, no keyboard.
+        waitForText("Sermon notes")
+        rule.onNodeWithText("Sermon notes").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("reading-content").fetchSemanticsNodes().isNotEmpty() }
+        val shown = rule.onNodeWithTag("reading-content").fetchSemanticsNode()
+            .config[SemanticsProperties.Text].joinToString { it.text }
+        assertTrue(shown, "Plan ahead" in shown && "**" !in shown && "•" in shown)
+        assertTrue(rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithTag("editor-title").fetchSemanticsNodes().isEmpty())
+        assertTrue(rule.onAllNodesWithContentDescription("Undo").fetchSemanticsNodes().isEmpty())
+        shot("29a_reading_mode")
+
+        // Edit switches to the editor with the body focused, and changes save as usual.
+        rule.onNodeWithTag("reading-edit").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("editor-content").assertIsFocused()
+        assertTrue(rule.onAllNodesWithTag("reading-edit").fetchSemanticsNodes().isEmpty())
+        rule.onNodeWithTag("editor-content").performTextInput(" Amen")
+        shot("29b_editing_after_edit")
+        back()
+        rule.waitUntil(5_000) {
+            runBlocking { container.repository.get(textId) }!!.note.content.endsWith("Amen")
+        }
+
+        // A checklist can still be ticked while reading.
+        waitForText("Shop")
+        rule.onNodeWithText("Shop").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("reading-item").fetchSemanticsNodes().size == 2 }
+        assertTrue(rule.onAllNodesWithTag("checklist-item").fetchSemanticsNodes().isEmpty())
+        rule.onAllNodes(isToggleable()).onFirst().performClick()
+        rule.waitUntil(5_000) {
+            runBlocking { container.repository.get(listId) }!!.note.items.first { it.id == 1L }.checked
+        }
+        back()
+
+        // A note with nothing in it yet opens for editing.
+        val emptyId = runBlocking { container.repository.getAll() }.first { it.note.title.isEmpty() && !it.note.isChecklist }.note.id
+        rule.runOnUiThread { rule.activity.startActivity(android.content.Intent(rule.activity, MainActivity::class.java).putExtra(com.holymanzion.simplenotepro.reminder.ReminderScheduler.EXTRA_NOTE_ID, emptyId)) }
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
+        back()
+
+        // With the setting off, notes open straight into editing again.
+        container.settings.update { it.copy(readingMode = false) }
+        waitForText("Sermon notes")
+        rule.onNodeWithText("Sermon notes").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(rule.onAllNodesWithTag("reading-content").fetchSemanticsNodes().isEmpty())
     }
 }

@@ -1,7 +1,7 @@
 # Play Console submission: Simple Note Pro
 
 Copy-paste material for the store listing, plus suggested answers to the declarations Play
-requires. Everything here matches what version 1.4.0 actually does. Check it still does
+requires. Everything here matches what version 1.5.0 actually does. Check it still does
 before you submit a later version.
 
 ---
@@ -12,8 +12,8 @@ before you submit a later version.
 | --- | --- |
 | App name (30 char max) | `Simple Note Pro` |
 | Package | `com.holymanzion.simplenotepro` |
-| Version | 1.4.0 (versionCode 9) |
-| Upload file | `SimpleNotePro-v1.4.0.aab` |
+| Version | 1.5.0 (versionCode 10) |
+| Upload file | `SimpleNotePro-v1.5.0.aab` |
 | Category | Productivity |
 | Tags | Notes, To-do list, Productivity |
 | Contact email | holymanzion@gmail.com |
@@ -42,6 +42,7 @@ WRITE IT DOWN, YOUR WAY
 • Lists continue when you press Enter, and links become tappable
 • Checklists you can drag to reorder; ticked items move out of the way
 • Undo and redo while you write
+• Reading mode: notes open ready to read, with tappable links and no keyboard
 • Everything saves automatically as you type
 
 PHOTOS, WITH SEARCHABLE TEXT
@@ -79,12 +80,20 @@ YOUR NOTES STAY YOURS
 
 Light and dark themes, Material You colours on Android 12 and newer.
 
-Free to use, with a small banner ad on the notes list.
+Free to use, with a small banner ad on the notes list and while reading a note.
 ```
 
 ---
 
 ## Release notes
+
+### 1.5.0
+
+```
+<en-US>
+New: reading mode. Notes now open ready to read, with formatting shown, links you can tap and no keyboard in the way. Tap Edit to make changes, or turn it off in Settings. A small banner ad shows below a note while you read; never while you type.
+</en-US>
+```
 
 ### 1.4.0
 
@@ -174,8 +183,8 @@ Photos are processed on the device and never sent, so they are not "collected" i
 
 | Section | Answer |
 | --- | --- |
-| Ads | **Yes**, the app contains ads (banner on the notes list) |
-| Advertising ID | **Yes**, used for **Advertising or marketing** (added by Google Mobile Ads) |
+| Ads | **Yes**, the app contains ads (banner on the notes list and in reading mode) |
+| Advertising ID | **Yes**, used for **Analytics**, **Advertising or marketing** and **Fraud prevention** (added by Google Mobile Ads) |
 | App access | **All functionality is available without special access** (no login; the app lock is optional) |
 | Content rating | Fill in the questionnaire as a productivity / utility app: no violence, sexual content, gambling, drugs or user-to-user communication. Expect **Everyone / PEGI 3** |
 | Target audience | **13 and over** is the simplest choice. Choosing under 13 brings in the Families policy, which the app isn't set up for |

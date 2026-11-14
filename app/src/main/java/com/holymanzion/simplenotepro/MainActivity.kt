@@ -161,6 +161,13 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** The banner, except behind the lock screen. */
+    @Composable
+    private fun UnlockedBanner() {
+        val locked by container.appLock.locked.collectAsStateWithLifecycle()
+        if (!locked) BannerAd(container.ads)
+    }
+
     @Composable
     private fun AppNavHost(navController: NavHostController) {
         NavHost(navController = navController, startDestination = Routes.HOME) {
@@ -172,10 +179,7 @@ class MainActivity : FragmentActivity() {
                     onNewNote = { checklist, labelId -> navController.navigate(Routes.editor(checklist = checklist, labelId = labelId)) },
                     onEditLabels = { navController.navigate(Routes.LABELS) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
-                    bannerAd = {
-                        val locked by container.appLock.locked.collectAsStateWithLifecycle()
-                        if (!locked) BannerAd(container.ads)
-                    },
+                    bannerAd = { UnlockedBanner() },
                 )
             }
             composable(
@@ -194,6 +198,7 @@ class MainActivity : FragmentActivity() {
                         navController.popBackStack()
                         navController.navigate(Routes.editor(id))
                     },
+                    bannerAd = { UnlockedBanner() },
                 )
             }
             composable(Routes.LABELS) {

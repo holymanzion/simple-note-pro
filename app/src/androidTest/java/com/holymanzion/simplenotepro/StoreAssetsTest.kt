@@ -178,7 +178,7 @@ class StoreAssetsTest {
         val repo = container.repository
         repo.deleteForever(repo.getAll().map { it.note.id })
         repo.labels.first().forEach { repo.deleteLabel(it.id) }
-        container.settings.update { AppSettings(themeMode = ThemeMode.LIGHT) }
+        container.settings.update { AppSettings(themeMode = ThemeMode.LIGHT, readingMode = false) }
         container.appLock.promptAutomatically = false
         container.appLock.unlock()
 

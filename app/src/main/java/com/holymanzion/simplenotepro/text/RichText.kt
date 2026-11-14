@@ -2,7 +2,10 @@ package com.holymanzion.simplenotepro.text
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
@@ -38,9 +41,10 @@ object RichText {
     private val H2 = SpanStyle(fontSize = 1.15.em, fontWeight = FontWeight.SemiBold)
 
     /**
-     * Styled text for display (note cards): marks are removed, bullets become "•".
+     * Styled text for display: marks are removed, bullets become "•". With [tappableLinks]
+     * (reading mode) links open when tapped; note cards leave them off so a tap opens the note.
      */
-    fun render(text: String, linkColor: Color): AnnotatedString = buildAnnotatedString {
+    fun render(text: String, linkColor: Color, tappableLinks: Boolean = false): AnnotatedString = buildAnnotatedString {
         text.split('\n').forEachIndexed { index, rawLine ->
             if (index > 0) append('\n')
             var line = rawLine
@@ -53,7 +57,7 @@ object RichText {
                 line = match.groupValues[1] + "•  " + line.substring(match.range.last + 1)
             }
             val start = length
-            appendInline(line, linkColor, keepMarks = false, markColor = Color.Unspecified)
+            appendInline(line, linkColor, keepMarks = false, markColor = Color.Unspecified, tappableLinks = tappableLinks)
             lineStyle?.let { addStyle(it, start, length) }
         }
     }
@@ -85,7 +89,13 @@ object RichText {
     fun links(text: String): List<String> =
         INLINE.findAll(text).mapNotNull { it.groups["url"]?.value }.distinct().toList()
 
-    private fun AnnotatedString.Builder.appendInline(line: String, linkColor: Color, keepMarks: Boolean, markColor: Color) {
+    private fun AnnotatedString.Builder.appendInline(
+        line: String,
+        linkColor: Color,
+        keepMarks: Boolean,
+        markColor: Color,
+        tappableLinks: Boolean = false,
+    ) {
         var cursor = 0
         for (match in INLINE.findAll(line)) {
             append(line.substring(cursor, match.range.first))
@@ -97,7 +107,11 @@ object RichText {
                 else -> Triple(groups["url"]!!.value, SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline), "")
             }
             if (keepMarks && mark.isNotEmpty()) withStyle(SpanStyle(color = markColor)) { append(mark) }
-            withStyle(style) { append(inner) }
+            if (tappableLinks && groups["url"] != null) {
+                withLink(LinkAnnotation.Url(inner, TextLinkStyles(style))) { append(inner) }
+            } else {
+                withStyle(style) { append(inner) }
+            }
             if (keepMarks && mark.isNotEmpty()) withStyle(SpanStyle(color = markColor)) { append(mark) }
             cursor = match.range.last + 1
         }

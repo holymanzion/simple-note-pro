@@ -101,6 +101,17 @@ class EditorViewModel(
     var updatedAt by mutableLongStateOf(System.currentTimeMillis())
         private set
 
+    /**
+     * Read-only view: no text fields, so no keyboard. Existing notes open this way when the
+     * setting is on; new notes, and notes with nothing to read yet, open for editing.
+     */
+    var reading by mutableStateOf(false)
+        private set
+
+    fun startEditing() {
+        reading = false
+    }
+
     /** Checklist item that should take focus next (after Enter or "Add item"). */
     var focusItemId by mutableStateOf<Long?>(null)
 
@@ -137,6 +148,8 @@ class EditorViewModel(
                 labelIds = existing.labels.map { it.id }.toSet()
                 createdAt = n.createdAt
                 updatedAt = n.updatedAt
+                val hasWriting = n.title.isNotBlank() || n.content.isNotBlank() || n.items.any { it.text.isNotBlank() }
+                reading = settings.value.readingMode && (hasWriting || existing.attachments.isNotEmpty())
             } else {
                 noteId = 0
                 savedState.get<Long>(ARG_LABEL_ID)?.takeIf { it > 0 }?.let { labelIds = setOf(it) }

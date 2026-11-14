@@ -17,6 +17,13 @@ import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import com.holymanzion.simplenotepro.data.Attachment
 import com.holymanzion.simplenotepro.text.RichText
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -142,8 +149,13 @@ fun EditorScreen(
     viewModel: EditorViewModel,
     onBack: () -> Unit,
     onOpenNote: (Long) -> Unit,
+    /** Shown only in reading mode, so an ad never sits above the keyboard. */
+    bannerAd: @Composable () -> Unit = {},
 ) {
     val context = LocalContext.current
+    val reading = viewModel.reading
+    // Set by the Edit button, so the body takes focus (and the keyboard opens) right after.
+    var focusAfterEdit by remember { mutableStateOf(false) }
     val labels by viewModel.allLabels.collectAsStateWithLifecycle()
     val settings by viewModel.settings.collectAsStateWithLifecycle()
     val background = noteBackground(viewModel.color, MaterialTheme.colorScheme.surface)
@@ -196,6 +208,16 @@ fun EditorScreen(
     Scaffold(
         containerColor = background,
         snackbarHost = { SnackbarHost(snackbar) },
+        floatingActionButton = {
+            if (reading) {
+                ExtendedFloatingActionButton(
+                    onClick = { focusAfterEdit = true; viewModel.startEditing() },
+                    modifier = Modifier.testTag("reading-edit"),
+                    icon = { Icon(Icons.Outlined.Edit, contentDescription = null) },
+                    text = { Text("Edit") },
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = background),
@@ -301,11 +323,13 @@ fun EditorScreen(
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
                     )
-                    IconButton(onClick = viewModel::undo, enabled = viewModel.canUndo) {
-                        Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "Undo")
-                    }
-                    IconButton(onClick = viewModel::redo, enabled = viewModel.canRedo) {
-                        Icon(Icons.AutoMirrored.Outlined.Redo, contentDescription = "Redo")
+                    if (!reading) {
+                        IconButton(onClick = viewModel::undo, enabled = viewModel.canUndo) {
+                            Icon(Icons.AutoMirrored.Outlined.Undo, contentDescription = "Undo")
+                        }
+                        IconButton(onClick = viewModel::redo, enabled = viewModel.canRedo) {
+                            Icon(Icons.AutoMirrored.Outlined.Redo, contentDescription = "Redo")
+                        }
                     }
                     Box {
                         IconButton(onClick = { showMenu = true }) { Icon(Icons.Outlined.MoreVert, contentDescription = "More") }
@@ -353,6 +377,11 @@ fun EditorScreen(
                         }
                     }
                 }
+                if (reading) {
+                    // A little space so a tap meant for the buttons above can't land on the ad.
+                    Spacer(Modifier.height(8.dp))
+                    bannerAd()
+                }
             }
         },
     ) { padding ->
@@ -361,6 +390,20 @@ fun EditorScreen(
         val contentFocus = remember { FocusRequester() }
         LaunchedEffect(Unit) {
             if (viewModel.isNew && !viewModel.isChecklist) contentFocus.requestFocus()
+        }
+        LaunchedEffect(reading) {
+            if (!reading && focusAfterEdit) {
+                focusAfterEdit = false
+                if (!viewModel.isChecklist) contentFocus.requestFocus()
+                else viewModel.focusItemId = viewModel.items.lastOrNull { !it.checked }?.id ?: viewModel.items.lastOrNull()?.id
+            }
+        }
+        // Links in reading mode open through this, so a missing browser shows a message
+        // instead of crashing.
+        val uriHandler = remember(context) {
+            object : UriHandler {
+                override fun openUri(uri: String) = context.openLink(uri)
+            }
         }
 
         val listState = rememberLazyListState()
@@ -371,12 +414,15 @@ fun EditorScreen(
         // Pictures sit below the writing, so one being added to a long note would land out
         // of view. While adding, scroll to them (the "Adding image…" row lives there too).
         // Only then: opening a note that already has pictures keeps you at the top.
+        val titleRows = if (reading && viewModel.title.isBlank()) 0 else 1
         val imagesIndex = if (!viewModel.isChecklist) {
-            2 // title, body
+            titleRows + 1 // title, body
         } else {
             val activeCount = if (settings.checkedToBottom) viewModel.items.count { !it.checked } else viewModel.items.size
             val hasCheckedSection = settings.checkedToBottom && viewModel.items.any { it.checked }
-            2 + activeCount + (if (hasCheckedSection) 1 else 0) // title, items, "List item" row, checked section
+            val addRow = if (reading) 0 else 1
+            // title, items, "List item" row, checked section
+            titleRows + activeCount + addRow + (if (hasCheckedSection) 1 else 0)
         }
         val currentImagesIndex by rememberUpdatedState(imagesIndex)
         val addingImages = viewModel.importingImages > 0
@@ -391,7 +437,23 @@ fun EditorScreen(
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            item(key = "title") {
+            if (reading) {
+                if (viewModel.title.isNotBlank()) {
+                    item(key = "title") {
+                        SelectionContainer {
+                            Text(
+                                viewModel.title,
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                                    .testTag("reading-title"),
+                            )
+                        }
+                    }
+                }
+            } else item(key = "title") {
                 PlainField(
                     value = viewModel.title,
                     onValueChange = { value ->
@@ -422,6 +484,11 @@ fun EditorScreen(
                 }
                 dragState.targets = active.map { it.id }
                 itemsIndexed(active, key = { _, item -> item.id }) { index, item ->
+                    if (reading) {
+                        // Items can still be ticked off while reading; only the text is fixed.
+                        ChecklistRow(item, viewModel, readOnly = true)
+                        return@itemsIndexed
+                    }
                     val dragging = dragState.draggedId == item.id
                     ChecklistRow(
                         item = item,
@@ -448,7 +515,7 @@ fun EditorScreen(
                         onMoveDown = active.getOrNull(index + 1)?.let { below -> { viewModel.moveItem(item.id, below.id) } },
                     )
                 }
-                item(key = "add-item") {
+                if (!reading) item(key = "add-item") {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -484,7 +551,29 @@ fun EditorScreen(
                                     modifier = Modifier.padding(start = 12.dp),
                                 )
                             }
-                            if (expanded) done.forEach { ChecklistRow(it, viewModel) }
+                            if (expanded) done.forEach { ChecklistRow(it, viewModel, readOnly = reading) }
+                        }
+                    }
+                }
+            } else if (reading) {
+                item(key = "content") {
+                    if (viewModel.content.isNotBlank()) {
+                        val linkColor = MaterialTheme.colorScheme.primary
+                        val rendered = remember(viewModel.content, linkColor) {
+                            RichText.render(viewModel.content, linkColor, tappableLinks = true)
+                        }
+                        CompositionLocalProvider(LocalUriHandler provides uriHandler) {
+                            SelectionContainer {
+                                Text(
+                                    rendered,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .testTag("reading-content"),
+                                )
+                            }
                         }
                     }
                 }
@@ -519,7 +608,8 @@ fun EditorScreen(
 
             val reminder = viewModel.reminderAt
             val attached = labels.filter { it.id in viewModel.labelIds }
-            val links = if (viewModel.isChecklist) emptyList() else RichText.links(viewModel.content)
+            // Reading mode makes links tappable in the text itself.
+            val links = if (viewModel.isChecklist || reading) emptyList() else RichText.links(viewModel.content)
             if (reminder != null || attached.isNotEmpty() || links.isNotEmpty()) {
                 item(key = "chips") {
                     FlowRow(
@@ -672,7 +762,30 @@ private fun ChecklistRow(
     dragHandle: Modifier? = null,
     onMoveUp: (() -> Unit)? = null,
     onMoveDown: (() -> Unit)? = null,
+    readOnly: Boolean = false,
 ) {
+    if (readOnly) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(end = 20.dp),
+        ) {
+            Spacer(Modifier.width(HANDLE_WIDTH))
+            Checkbox(checked = item.checked, onCheckedChange = { viewModel.toggleItem(item.id) })
+            Text(
+                item.text,
+                style = MaterialTheme.typography.bodyLarge.copy(
+                    textDecoration = if (item.checked) TextDecoration.LineThrough else null,
+                ),
+                color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("reading-item"),
+            )
+        }
+        return
+    }
     val focus = remember { FocusRequester() }
     var focused by remember { mutableStateOf(false) }
     LaunchedEffect(viewModel.focusItemId) {
