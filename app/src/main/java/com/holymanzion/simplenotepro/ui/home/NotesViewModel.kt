@@ -9,6 +9,7 @@ import com.holymanzion.simplenotepro.SimpleNoteApp
 import com.holymanzion.simplenotepro.data.AppSettings
 import com.holymanzion.simplenotepro.data.Label
 import com.holymanzion.simplenotepro.data.NoteRepository
+import com.holymanzion.simplenotepro.data.NoteTemplate
 import com.holymanzion.simplenotepro.data.NoteWithLabels
 import com.holymanzion.simplenotepro.data.SettingsRepository
 import com.holymanzion.simplenotepro.data.SortOrder
@@ -101,6 +102,14 @@ class NotesViewModel(
             imageMatches = matching.filter { !it.matchesWrittenText(input.query) }.map { it.note.id }.toSet(),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+
+    /** The user's own templates; built-in ones are added by the picker. */
+    val templates: StateFlow<List<NoteTemplate>> =
+        repository.templates.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    fun deleteTemplate(id: Long) {
+        viewModelScope.launch { repository.deleteTemplate(id) }
+    }
 
     fun setFilter(value: NoteFilter) {
         filter.value = value

@@ -1,7 +1,7 @@
 # Play Console submission: Simple Note Pro
 
 Copy-paste material for the store listing, plus suggested answers to the declarations Play
-requires. Everything here matches what version 1.5.0 actually does. Check it still does
+requires. Everything here matches what version 1.6.0 actually does. Check it still does
 before you submit a later version.
 
 ---
@@ -12,8 +12,8 @@ before you submit a later version.
 | --- | --- |
 | App name (30 char max) | `Simple Note Pro` |
 | Package | `com.holymanzion.simplenotepro` |
-| Version | 1.5.0 (versionCode 10) |
-| Upload file | `SimpleNotePro-v1.5.0.aab` |
+| Version | 1.6.0 (versionCode 11) |
+| Upload file | `SimpleNotePro-v1.6.0.aab` |
 | Category | Productivity |
 | Tags | Notes, To-do list, Productivity |
 | Contact email | holymanzion@gmail.com |
@@ -43,12 +43,15 @@ WRITE IT DOWN, YOUR WAY
 • Checklists you can drag to reorder; ticked items move out of the way
 • Undo and redo while you write
 • Reading mode: notes open ready to read, with tappable links and no keyboard
+• Voice typing: speak and your words go in the note
+• Choose your text size: small to extra large
 • Everything saves automatically as you type
 
 PHOTOS, WITH SEARCHABLE TEXT
 • Take a photo or add pictures from your gallery
 • Text in your pictures (receipts, documents, whiteboards, screenshots) is read on your phone, so search finds it
 • Copy that text, or add it to the note with one tap
+• Draw or handwrite with your finger and keep it with the note
 
 NEVER FORGET
 • Reminders for any date and time, or quick picks like "tomorrow morning"
@@ -62,6 +65,7 @@ STAY ORGANISED
 • Grid or list view, sorted by date or title
 • Search across titles, notes, checklists, labels and text in photos
 • Swipe to archive or delete, with undo
+• Templates: shopping list, meeting and sermon notes, journal, packing list, recipe, or save your own
 • Trash keeps deleted notes for 30 days
 
 CAPTURE IN A SECOND
@@ -70,6 +74,7 @@ CAPTURE IN A SECOND
 • "New note" tile in Quick Settings
 • App shortcuts for a new note or checklist
 • Share text or a picture from any app to save it as a note
+• Share a note as text, a picture or a PDF
 
 YOUR NOTES STAY YOURS
 • No account, no sign-in
@@ -78,7 +83,7 @@ YOUR NOTES STAY YOURS
 • Automatic backups to a folder you choose (for example one synced by Google Drive), and ZIP export and import
 • Optional backup password: backups are encrypted with AES-256
 
-Light and dark themes, Material You colours on Android 12 and newer.
+Light and dark themes, Material You colours on Android 12 and newer. Notes list and note side by side on tablets and Chromebooks.
 
 Free to use, with a small banner ad on the notes list and while reading a note.
 ```
@@ -86,6 +91,21 @@ Free to use, with a small banner ad on the notes list and while reading a note.
 ---
 
 ## Release notes
+
+### 1.6.0
+
+```
+<en-US>
+New in this update:
+• Templates: start a note from a shopping list, meeting or sermon notes, journal and more, or save your own
+• Voice typing: tap the mic and speak
+• Drawing: sketch or handwrite with your finger
+• Share a note as a picture or PDF
+• Text size: make notes easier to read
+• Uncheck all items in one tap
+• Tablets: notes list and note side by side
+</en-US>
+```
 
 ### 1.5.0
 

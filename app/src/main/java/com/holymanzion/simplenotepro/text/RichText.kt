@@ -173,6 +173,27 @@ object RichText {
     }
 
     private val LINE_PREFIX = Regex("""^(#{1,2} |[-*•] |\d{1,3}\. )""")
+    private val ONLY_LINE_PREFIX = Regex("""^\s*(#{1,2}|[-*•]|\d{1,3}\.)?\s*$""")
+
+    /**
+     * Puts words from voice typing at the cursor (replacing any selection), with spaces
+     * around them as needed and a capital letter when they start a sentence or line.
+     */
+    fun insertSpoken(value: TextFieldValue, spoken: String): TextFieldValue {
+        val words = spoken.trim()
+        if (words.isEmpty()) return value
+        val text = value.text
+        val start = value.selection.min
+        val before = text.substring(0, start)
+        val after = text.substring(value.selection.max)
+        val lineSoFar = before.substringAfterLast('\n')
+        val sentenceStart = ONLY_LINE_PREFIX.matches(lineSoFar) || before.trimEnd(' ').lastOrNull() in setOf('.', '!', '?')
+        val body = if (sentenceStart) words.replaceFirstChar { it.uppercaseChar() } else words
+        val lead = if (before.isEmpty() || before.last().isWhitespace()) "" else " "
+        val trail = if (after.isEmpty() || after.first().isWhitespace() || after.first() in ".,!?;:") "" else " "
+        val inserted = lead + body + trail
+        return TextFieldValue(before + inserted + after, TextRange(start + inserted.length))
+    }
 
     /**
      * Continues a list when Enter is pressed at the end of a list item, and ends the list

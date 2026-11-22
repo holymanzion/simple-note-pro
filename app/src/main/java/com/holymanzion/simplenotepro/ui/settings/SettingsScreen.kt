@@ -66,7 +66,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.holymanzion.simplenotepro.AppContainer
 import com.holymanzion.simplenotepro.BuildConfig
+import com.holymanzion.simplenotepro.data.TextSize
 import com.holymanzion.simplenotepro.data.ThemeMode
+import com.holymanzion.simplenotepro.ui.theme.forNotes
+import androidx.compose.material.icons.outlined.FormatSize
+import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -80,6 +84,7 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
     val scope = rememberCoroutineScope()
     val snackbar = remember { SnackbarHostState() }
     var themeDialog by remember { mutableStateOf(false) }
+    var textSizeDialog by remember { mutableStateOf(false) }
 
     var frequencyDialog by remember { mutableStateOf(false) }
     val adPrivacyRequired by container.ads.privacyOptionsRequired.collectAsStateWithLifecycle()
@@ -198,6 +203,12 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
             }
 
             SectionHeader("Notes")
+            SettingRow(
+                icon = Icons.Outlined.FormatSize,
+                title = "Text size",
+                subtitle = settings.textSize.label,
+                onClick = { textSizeDialog = true },
+            )
             SettingRow(
                 icon = Icons.Outlined.Checklist,
                 title = "Move checked items to bottom",
@@ -335,6 +346,30 @@ fun SettingsScreen(container: AppContainer, onBack: () -> Unit, onOpenPrivacyPol
                 }
             },
             confirmButton = { TextButton(onClick = { frequencyDialog = false }) { Text("Cancel") } },
+        )
+    }
+    if (textSizeDialog) {
+        AlertDialog(
+            onDismissRequest = { textSizeDialog = false },
+            title = { Text("Text size") },
+            text = {
+                Column {
+                    TextSize.entries.forEach { size ->
+                        ListItemRadio(size.label, settings.textSize == size) {
+                            container.settings.update { it.copy(textSize = size) }
+                        }
+                    }
+                    // A sample at the chosen size, so the difference is visible before closing.
+                    Text(
+                        "The quick brown fox jumps over the lazy dog.",
+                        style = MaterialTheme.typography.bodyLarge.forNotes(),
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .testTag("text-size-sample"),
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { textSizeDialog = false }) { Text("Done") } },
         )
     }
     if (themeDialog) {

@@ -13,6 +13,7 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import com.holymanzion.simplenotepro.data.ThemeMode
 
 private val LightColors = lightColorScheme(
@@ -100,10 +101,26 @@ fun ThemeMode.isDark(): Boolean = when (this) {
     ThemeMode.DARK -> true
 }
 
+/** The text size setting's scale; only note text uses it, so menus and buttons keep their size. */
+val LocalNoteTextScale = staticCompositionLocalOf { 1f }
+
+/** This style at the user's chosen note text size. */
+@Composable
+@ReadOnlyComposable
+fun TextStyle.forNotes(): TextStyle {
+    val scale = LocalNoteTextScale.current
+    if (scale == 1f) return this
+    return copy(
+        fontSize = if (fontSize.isSp) fontSize * scale else fontSize,
+        lineHeight = if (lineHeight.isSp) lineHeight * scale else lineHeight,
+    )
+}
+
 @Composable
 fun SimpleNoteTheme(
     themeMode: ThemeMode,
     dynamicColor: Boolean,
+    noteTextScale: Float = 1f,
     content: @Composable () -> Unit,
 ) {
     val dark = themeMode.isDark()
@@ -114,7 +131,7 @@ fun SimpleNoteTheme(
         dark -> DarkColors
         else -> LightColors
     }
-    androidx.compose.runtime.CompositionLocalProvider(LocalDarkTheme provides dark) {
+    androidx.compose.runtime.CompositionLocalProvider(LocalDarkTheme provides dark, LocalNoteTextScale provides noteTextScale) {
         MaterialTheme(colorScheme = scheme, content = content)
     }
 }

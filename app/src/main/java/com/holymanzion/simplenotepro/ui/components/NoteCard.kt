@@ -48,6 +48,7 @@ import com.holymanzion.simplenotepro.data.Attachment
 import com.holymanzion.simplenotepro.data.AttachmentStore
 import com.holymanzion.simplenotepro.data.NoteWithLabels
 import com.holymanzion.simplenotepro.text.RichText
+import com.holymanzion.simplenotepro.ui.theme.forNotes
 import com.holymanzion.simplenotepro.ui.theme.noteBackground
 
 private const val PREVIEW_ITEMS = 8
@@ -87,7 +88,7 @@ fun NoteCard(
                     Row(verticalAlignment = Alignment.Top) {
                         Text(
                             text = note.title,
-                            style = MaterialTheme.typography.titleMedium,
+                            style = MaterialTheme.typography.titleMedium.forNotes(),
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
@@ -120,7 +121,7 @@ fun NoteCard(
                             Spacer(Modifier.width(6.dp))
                             Text(
                                 checklistItem.text,
-                                style = MaterialTheme.typography.bodyMedium,
+                                style = MaterialTheme.typography.bodyMedium.forNotes(),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                                 textDecoration = if (checklistItem.checked) TextDecoration.LineThrough else null,
@@ -140,7 +141,7 @@ fun NoteCard(
                 } else if (note.content.isNotBlank()) {
                     Text(
                         remember(note.content, linkColor) { RichText.render(note.content, linkColor) },
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyMedium.forNotes(),
                         maxLines = 10,
                         overflow = TextOverflow.Ellipsis,
                     )

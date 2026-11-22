@@ -2,4 +2,5 @@
 <paths>
     <files-path name="attachments" path="attachments/" />
     <cache-path name="camera" path="camera/" />
+    <cache-path name="share" path="share/" />
 </paths>

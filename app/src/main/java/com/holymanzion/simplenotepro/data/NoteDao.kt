@@ -109,6 +109,23 @@ interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertNoteLabels(refs: List<NoteLabel>)
 
+    // --- Templates ---
+
+    @Query("SELECT * FROM templates ORDER BY name COLLATE NOCASE")
+    fun observeTemplates(): Flow<List<NoteTemplate>>
+
+    @Query("SELECT * FROM templates")
+    suspend fun allTemplates(): List<NoteTemplate>
+
+    @Query("SELECT * FROM templates WHERE id = :id")
+    suspend fun getTemplate(id: Long): NoteTemplate?
+
+    @Insert
+    suspend fun insertTemplate(template: NoteTemplate): Long
+
+    @Query("DELETE FROM templates WHERE id = :id")
+    suspend fun deleteTemplate(id: Long)
+
     @Transaction
     suspend fun setNoteLabels(noteId: Long, labelIds: Collection<Long>) {
         clearNoteLabels(noteId)

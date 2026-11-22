@@ -35,6 +35,9 @@ class AttachmentStore(private val context: Context) {
         }
     }
 
+    /** Saves an image made in the app (a drawing). The caller still owns [bitmap]. */
+    fun store(bitmap: Bitmap): StoredImage = save(bitmap)
+
     /** Stores raw image bytes (from a backup) under a fresh name. */
     fun importBytes(input: InputStream, extension: String = "jpg"): String {
         val name = "${UUID.randomUUID()}.$extension"

@@ -10,12 +10,13 @@ import androidx.room.RoomDatabase
  * v1: notes, labels, note_labels.
  * v2: notes.reminderRepeat, attachments table (additive, so Room migrates automatically).
  * v3: attachments.ocrText (additive).
+ * v4: templates table (additive).
  */
 @Database(
-    entities = [Note::class, Label::class, NoteLabel::class, Attachment::class],
-    version = 3,
+    entities = [Note::class, Label::class, NoteLabel::class, Attachment::class, NoteTemplate::class],
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun noteDao(): NoteDao

@@ -32,8 +32,8 @@ android {
         applicationId = "com.holymanzion.simplenotepro"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.5.0"
+        versionCode = 11
+        versionName = "1.6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -152,6 +152,7 @@ dependencies {
     implementation(libs.zip4j)
     implementation(libs.play.services.ads)
     implementation(libs.user.messaging.platform)
+    implementation(libs.play.app.update)
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)

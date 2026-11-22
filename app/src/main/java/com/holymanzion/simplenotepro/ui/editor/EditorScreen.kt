@@ -15,8 +15,26 @@ import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Repeat
+import android.app.Activity
+import android.speech.RecognizerIntent
+import androidx.compose.material.icons.outlined.Draw
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.PostAdd
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.holymanzion.simplenotepro.data.AttachmentStore
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.outlined.Edit
@@ -141,6 +159,7 @@ import com.holymanzion.simplenotepro.ui.components.ReminderDialog
 import com.holymanzion.simplenotepro.ui.components.friendlyTime
 import com.holymanzion.simplenotepro.ui.components.fullDateTime
 import com.holymanzion.simplenotepro.ui.components.reminderLabel
+import com.holymanzion.simplenotepro.ui.theme.forNotes
 import com.holymanzion.simplenotepro.ui.theme.noteBackground
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -169,6 +188,21 @@ fun EditorScreen(
     var viewingImage by remember { mutableStateOf<Attachment?>(null) }
     val attachments by viewModel.attachments.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    fun uncheckAllWithUndo() {
+        val before = viewModel.uncheckAll()
+        val count = before.count { it.checked }
+        if (count == 0) return
+        scope.launch {
+            snackbar.currentSnackbarData?.dismiss()
+            val result = snackbar.showSnackbar(
+                "Unchecked $count item${if (count == 1) "" else "s"}",
+                actionLabel = "Undo",
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) viewModel.restoreItems(before)
+        }
+    }
     LaunchedEffect(viewModel.message) {
         viewModel.message?.let { snackbar.showSnackbar(it); viewModel.message = null }
     }
@@ -193,6 +227,24 @@ fun EditorScreen(
         pendingPhoto?.let { if (saved) viewModel.addImages(listOf(it)) }
         pendingPhoto = null
     }
+
+    // Voice typing goes through the phone's own speech recognizer (Google's, usually), which
+    // asks for the microphone itself, so the app needs no microphone permission.
+    val voice = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val spoken = result.data?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (result.resultCode != Activity.RESULT_OK || spoken.isNullOrBlank()) return@rememberLauncherForActivityResult
+        if (viewModel.isChecklist) viewModel.addSpokenItem(spoken)
+        else updateContent(RichText.insertSpoken(contentField, spoken))
+    }
+    fun startVoiceTyping() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+            .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            .putExtra(RecognizerIntent.EXTRA_PROMPT, "Speak now")
+        runCatching { voice.launch(intent) }.onFailure { viewModel.message = "Voice typing isn't available on this phone" }
+    }
+    var showDrawing by rememberSaveable { mutableStateOf(false) }
+    var showShare by remember { mutableStateOf(false) }
+    var showSaveTemplate by remember { mutableStateOf(false) }
 
     val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     fun ensureNotificationPermission() {
@@ -261,7 +313,7 @@ fun EditorScreen(
                     )
                 }
                 if (contentFocused && !viewModel.isChecklist) {
-                    FormattingToolbar(onAction = { transform -> updateContent(transform(contentField)) })
+                    FormattingToolbar(onAction = { transform -> updateContent(transform(contentField)) }, onVoice = ::startVoiceTyping)
                 }
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -294,6 +346,24 @@ fun EditorScreen(
                                 onClick = {
                                     showAddMenu = false
                                     pickImages.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Drawing") },
+                                leadingIcon = { Icon(Icons.Outlined.Draw, contentDescription = null) },
+                                onClick = { showAddMenu = false; showDrawing = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Voice typing") },
+                                leadingIcon = { Icon(Icons.Outlined.Mic, contentDescription = null) },
+                                onClick = {
+                                    showAddMenu = false
+                                    // Typing goes in at the end when reading, as there's no cursor yet.
+                                    if (reading) {
+                                        viewModel.startEditing()
+                                        contentFieldState = TextFieldValue(viewModel.content, TextRange(viewModel.content.length))
+                                    }
+                                    startVoiceTyping()
                                 },
                             )
                             DropdownMenuItem(
@@ -337,14 +407,12 @@ fun EditorScreen(
                             DropdownMenuItem(
                                 text = { Text("Share") },
                                 leadingIcon = { Icon(Icons.Outlined.Share, contentDescription = null) },
-                                onClick = {
-                                    showMenu = false
-                                    val send = Intent(Intent.ACTION_SEND)
-                                        .setType("text/plain")
-                                        .putExtra(Intent.EXTRA_SUBJECT, viewModel.title)
-                                        .putExtra(Intent.EXTRA_TEXT, viewModel.shareText())
-                                    context.startActivity(Intent.createChooser(send, "Share note"))
-                                },
+                                onClick = { showMenu = false; showShare = true },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Save as template") },
+                                leadingIcon = { Icon(Icons.Outlined.PostAdd, contentDescription = null) },
+                                onClick = { showMenu = false; showSaveTemplate = true },
                             )
                             DropdownMenuItem(
                                 text = { Text("Make a copy") },
@@ -355,7 +423,7 @@ fun EditorScreen(
                                 DropdownMenuItem(
                                     text = { Text("Uncheck all items") },
                                     leadingIcon = { Icon(Icons.Outlined.RemoveDone, contentDescription = null) },
-                                    onClick = { showMenu = false; viewModel.uncheckAll() },
+                                    onClick = { showMenu = false; uncheckAllWithUndo() },
                                 )
                                 DropdownMenuItem(
                                     text = { Text("Delete checked items") },
@@ -443,7 +511,7 @@ fun EditorScreen(
                         SelectionContainer {
                             Text(
                                 viewModel.title,
-                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold).forNotes(),
                                 color = MaterialTheme.colorScheme.onSurface,
                                 modifier = Modifier
                                     .fillMaxWidth()
@@ -468,7 +536,7 @@ fun EditorScreen(
                         }
                     },
                     placeholder = "Title",
-                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold),
+                    style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.SemiBold).forNotes(),
                     modifier = Modifier
                         .padding(horizontal = 20.dp, vertical = 8.dp)
                         .focusRequester(titleFocus)
@@ -548,8 +616,14 @@ fun EditorScreen(
                                     "${done.size} checked item${if (done.size == 1) "" else "s"}",
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.padding(start = 12.dp),
+                                    modifier = Modifier
+                                        .padding(start = 12.dp)
+                                        .weight(1f),
                                 )
+                                // One tap to reuse the list (packing, weekly shop), with undo.
+                                TextButton(onClick = ::uncheckAllWithUndo, modifier = Modifier.testTag("uncheck-all")) {
+                                    Text("Uncheck all")
+                                }
                             }
                             if (expanded) done.forEach { ChecklistRow(it, viewModel, readOnly = reading) }
                         }
@@ -566,7 +640,7 @@ fun EditorScreen(
                             SelectionContainer {
                                 Text(
                                     rendered,
-                                    style = MaterialTheme.typography.bodyLarge,
+                                    style = MaterialTheme.typography.bodyLarge.forNotes(),
                                     color = MaterialTheme.colorScheme.onSurface,
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -672,6 +746,82 @@ fun EditorScreen(
             onDismiss = { viewingImage = null },
         )
     }
+    if (showShare) {
+        fun exported() = ExportedNote(
+            title = viewModel.title,
+            content = viewModel.content,
+            isChecklist = viewModel.isChecklist,
+            items = viewModel.items.toList(),
+            color = viewModel.color,
+            images = attachments.map { AttachmentStore.file(context, it.fileName) },
+        )
+        fun shareFile(mime: String, make: (ExportedNote) -> File) {
+            showShare = false
+            val note = exported()
+            scope.launch {
+                runCatching { withContext(Dispatchers.IO) { make(note) } }
+                    .onSuccess { file -> context.shareFile(file, mime, viewModel.title) }
+                    .onFailure { viewModel.message = "Couldn't make the file to share" }
+            }
+        }
+        AlertDialog(
+            onDismissRequest = { showShare = false },
+            title = { Text("Share note") },
+            text = {
+                Column {
+                    ShareOption(Icons.AutoMirrored.Outlined.Notes, "As text", "For messages and email") {
+                        showShare = false
+                        val send = Intent(Intent.ACTION_SEND)
+                            .setType("text/plain")
+                            .putExtra(Intent.EXTRA_SUBJECT, viewModel.title)
+                            .putExtra(Intent.EXTRA_TEXT, viewModel.shareText())
+                        context.startActivity(Intent.createChooser(send, "Share note"))
+                    }
+                    ShareOption(Icons.Outlined.Image, "As image", "A picture of the note, with its formatting") {
+                        shareFile("image/png") { NoteExport.toImage(context, it) }
+                    }
+                    ShareOption(Icons.Outlined.PictureAsPdf, "As PDF", "To print or keep as a document") {
+                        shareFile("application/pdf") { NoteExport.toPdf(context, it) }
+                    }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showShare = false }) { Text("Cancel") } },
+        )
+    }
+    if (showSaveTemplate) {
+        var name by remember { mutableStateOf(viewModel.title.trim()) }
+        AlertDialog(
+            onDismissRequest = { showSaveTemplate = false },
+            title = { Text("Save as template") },
+            text = {
+                Column {
+                    Text(
+                        "New notes can start from this note's writing. Pictures, labels and reminders aren't included.",
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Template name") },
+                        singleLine = true,
+                        modifier = Modifier
+                            .padding(top = 12.dp)
+                            .testTag("template-name"),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.saveAsTemplate(name); showSaveTemplate = false }) { Text("Save") }
+            },
+            dismissButton = { TextButton(onClick = { showSaveTemplate = false }) { Text("Cancel") } },
+        )
+    }
+    if (showDrawing) {
+        DrawingDialog(
+            onSave = { bitmap -> showDrawing = false; viewModel.addDrawing(bitmap) },
+            onDismiss = { showDrawing = false },
+        )
+    }
     if (showInfo) {
         AlertDialog(
             onDismissRequest = { showInfo = false },
@@ -775,7 +925,7 @@ private fun ChecklistRow(
             Checkbox(checked = item.checked, onCheckedChange = { viewModel.toggleItem(item.id) })
             Text(
                 item.text,
-                style = MaterialTheme.typography.bodyLarge.copy(
+                style = MaterialTheme.typography.bodyLarge.forNotes().copy(
                     textDecoration = if (item.checked) TextDecoration.LineThrough else null,
                 ),
                 color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
@@ -831,7 +981,7 @@ private fun ChecklistRow(
             onValueChange = { viewModel.updateItemText(item.id, it) },
             placeholder = "",
             singleLine = false,
-            style = MaterialTheme.typography.bodyLarge.copy(
+            style = MaterialTheme.typography.bodyLarge.forNotes().copy(
                 textDecoration = if (item.checked) TextDecoration.LineThrough else null,
                 color = if (item.checked) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             ),
@@ -885,6 +1035,17 @@ private fun PlainField(
                 inner()
             }
         },
+    )
+}
+
+@Composable
+private fun ShareOption(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(subtitle) },
+        leadingContent = { Icon(icon, contentDescription = null) },
+        colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+        modifier = Modifier.clickable(onClick = onClick),
     )
 }
 

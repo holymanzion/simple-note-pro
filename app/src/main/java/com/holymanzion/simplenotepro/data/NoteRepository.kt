@@ -1,5 +1,6 @@
 package com.holymanzion.simplenotepro.data
 
+import android.graphics.Bitmap
 import android.net.Uri
 import androidx.room.withTransaction
 import com.holymanzion.simplenotepro.reminder.ReminderScheduler
@@ -196,6 +197,35 @@ class NoteRepository(
     suspend fun removeAttachment(attachment: Attachment) {
         dao.deleteAttachment(attachment.id)
         withContext(Dispatchers.IO) { attachmentStore.delete(listOf(attachment.fileName)) }
+    }
+
+    /** Saves a finger drawing as one of [noteId]'s pictures. */
+    suspend fun addDrawing(noteId: Long, bitmap: Bitmap): Attachment {
+        val stored = withContext(Dispatchers.IO) { attachmentStore.store(bitmap) }
+        val attachment = Attachment(noteId = noteId, fileName = stored.fileName, width = stored.width, height = stored.height)
+        return attachment.copy(id = dao.insertAttachment(attachment))
+    }
+
+    // --- Templates ---
+
+    /** The user's templates, by name. Built-in ones come from [BuiltInTemplates]. */
+    val templates: Flow<List<NoteTemplate>> = dao.observeTemplates()
+
+    suspend fun allTemplates(): List<NoteTemplate> = dao.allTemplates()
+
+    /** A built-in (negative id) or saved template. */
+    suspend fun template(id: Long): NoteTemplate? = if (id < 0) BuiltInTemplates.get(id) else dao.getTemplate(id)
+
+    /** Stores the note's writing as a new template. Pictures, labels and reminders aren't part of it. */
+    suspend fun saveTemplate(template: NoteTemplate): Long {
+        val items = template.items.map { it.copy(checked = false) }
+        return dao.insertTemplate(
+            template.copy(id = 0, name = template.name.trim(), checklist = if (template.isChecklist) ChecklistCodec.encode(items) else ""),
+        )
+    }
+
+    suspend fun deleteTemplate(id: Long) {
+        if (id > 0) dao.deleteTemplate(id)
     }
 
     // --- Labels ---

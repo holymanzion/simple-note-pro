@@ -44,6 +44,7 @@ import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PostAdd
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.RestoreFromTrash
 import androidx.compose.material.icons.outlined.Search
@@ -115,6 +116,7 @@ fun HomeScreen(
     viewModel: NotesViewModel,
     onOpenNote: (Long) -> Unit,
     onNewNote: (checklist: Boolean, labelId: Long?) -> Unit,
+    onNewFromTemplate: (templateId: Long, labelId: Long?) -> Unit,
     onEditLabels: () -> Unit,
     onOpenSettings: () -> Unit,
     /** Shown below the notes; empty when there is no ad to show. */
@@ -127,6 +129,7 @@ fun HomeScreen(
     val gridState = rememberLazyStaggeredGridState()
 
     var showColorPicker by remember { mutableStateOf(false) }
+    var showTemplates by remember { mutableStateOf(false) }
     var confirmDeleteForever by remember { mutableStateOf(false) }
     var confirmEmptyTrash by remember { mutableStateOf(false) }
     var trashedNote by remember { mutableStateOf<NoteWithLabels?>(null) }
@@ -202,6 +205,9 @@ fun HomeScreen(
                 ) {
                     val labelId = (state.filter as? NoteFilter.ByLabel)?.labelId
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        SmallFloatingActionButton(onClick = { showTemplates = true }) {
+                            Icon(Icons.Outlined.PostAdd, contentDescription = "New from template")
+                        }
                         SmallFloatingActionButton(onClick = { onNewNote(true, labelId) }) {
                             Icon(Icons.Outlined.CheckBox, contentDescription = "New checklist")
                         }
@@ -245,6 +251,18 @@ fun HomeScreen(
         }
     }
 
+    if (showTemplates) {
+        val mine by viewModel.templates.collectAsStateWithLifecycle()
+        TemplatePickerDialog(
+            mine = mine,
+            onPick = { template ->
+                showTemplates = false
+                onNewFromTemplate(template.id, (state.filter as? NoteFilter.ByLabel)?.labelId)
+            },
+            onDelete = { viewModel.deleteTemplate(it.id) },
+            onDismiss = { showTemplates = false },
+        )
+    }
     if (showColorPicker) {
         val current = state.visible.filter { it.note.id in state.selection }.map { it.note.color }.distinct().singleOrNull() ?: -1
         ColorPickerDialog(selected = current, onSelect = viewModel::colorSelected, onDismiss = { showColorPicker = false })

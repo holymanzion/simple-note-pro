@@ -8,6 +8,10 @@ An offline note-taking app for Android, built with Kotlin, Jetpack Compose (Mate
 - **Text notes and checklists.** Press Enter to add a checklist item, or paste several lines to create one item per line. Drag the handle to reorder items (screen-reader users get "Move up" and "Move down" actions instead). You can switch a note between text and checklist, and ticked items can move to a collapsible section at the bottom.
 - **Formatting.** A toolbar above the keyboard adds **bold**, *italic*, ~~strikethrough~~, headings, bulleted lists and numbered lists. Enter continues a list, and Enter on an empty item ends it. Formatting is stored as plain Markdown-style marks, so notes stay readable when shared or exported. Links are detected and appear as tappable chips.
 - **Reading mode.** Existing notes open ready to read, with formatting shown, links tappable and no keyboard; **Edit** switches to editing. Checklist items can still be ticked. New and empty notes open for editing, and **Settings › Open notes in reading mode** turns it off.
+- **Text size.** Small, medium, large or extra large note text (Settings › Text size), in the editor, reading mode and the notes list. Menus and buttons keep their size.
+- **Voice typing.** The microphone on the formatting bar (or **+ › Voice typing**) uses the phone's speech recognizer and puts the words at the cursor, or adds them as a checklist item. The app needs no microphone permission.
+- **Drawing.** **+ › Drawing** opens a full-screen canvas with six pen colours, three thicknesses, undo and clear. The drawing is saved with the note's pictures, and handwriting in it becomes searchable.
+- **Templates.** The template button on the home screen starts a note from a built-in template (shopping, meeting, sermon, journal, packing, recipe, to-do) or one of your own; `{date}` becomes today's date. Save any note as a template from its ⋮ menu. Your templates are included in backups.
 - **Images.** Take a photo or add pictures from your gallery. They appear below the note's text, whole and at their own shape. Large photos are shrunk (to at most 2048 px) and turned the right way up. Tap a picture to view it full screen, zoom, share or delete it. Sharing a picture from another app into Simple Note Pro creates a note with it.
 - **Text in photos.** Printed text in pictures (receipts, documents, whiteboards, screenshots) is read on the phone, with no upload, so search finds notes by it and marks them "Found in image". In the picture viewer, **Text in image** lets you copy that text or add it to the note.
 - **Autosave.** Notes save while you type. An empty note is thrown away when you leave it; a note with only a picture is kept.
@@ -43,7 +47,10 @@ An offline note-taking app for Android, built with Kotlin, Jetpack Compose (Mate
 - A banner on the notes list and below a note in reading mode, from Google AdMob. Nothing while editing, in widgets or on the lock screen, and no space is used until an ad has loaded. Where the law requires it, Google's consent form comes first, and **Settings › Ad privacy choices** changes the answer later.
 
 **Everything else**
-- **Share** a note as text.
+- **Share** a note as text, as a picture (PNG) or as an A4 PDF, with its formatting, colour and pictures.
+- **Uncheck all**: one tap on the "checked items" header resets a checklist, with Undo.
+- **Tablets and Chromebooks**: on large screens the notes list and the open note sit side by side.
+- **Required updates**: when a newer version is on Google Play, Play's full-screen update opens as the app starts. Backing out closes the app. If Play can't update (no space or no connection), the app keeps working and asks again next time. This only applies to copies installed from Play.
 - **Note info:** when it was created and last edited, plus word, character and checklist-progress counts.
 - **Themes:** light, dark or follow the system, plus Material You dynamic color on Android 12 and newer.
 
@@ -77,11 +84,11 @@ When you create the app in Play Console, keep **Play App Signing** on (the defau
 
 ## Tests
 
-- **Unit tests** (`app/src/test`, run on the computer): formatting and list handling, repeat-date maths including daylight saving, and app-lock timing.
+- **Unit tests** (`app/src/test`, run on the computer): formatting and list handling, voice-typing insertion, templates, the tablet-layout rule, repeat-date maths including daylight saving, and app-lock timing.
   ```bash
   ./gradlew testDebugUnitTest
   ```
-- **Device tests** (`app/src/androidTest`): 29 end-to-end tests of the user journeys (notes, reading mode, checklists, search, labels, reminders including notification actions, trash, undo, drag, swipe, images, text in photos, formatting, app lock, widgets and tile, backups including passwords and 1,000-note speed checks), with a screenshot of each step, plus database upgrade tests from 1.0 and 1.1 and picture-rotation tests. The debug build installs as a separate app (`.debug` suffix), so tests never touch your real notes. Keep the phone unlocked and don't use it while they run.
+- **Device tests** (`app/src/androidTest`): 37 end-to-end tests of the user journeys (notes, reading mode, text size, templates, drawing, voice typing, sharing as image and PDF, tablet layout, required Play updates, checklists, search, labels, reminders including notification actions, trash, undo, drag, swipe, images, text in photos, formatting, app lock, widgets and tile, backups including passwords and 1,000-note speed checks), with a screenshot of each step, plus database upgrade tests from 1.0 and 1.1 and picture-rotation tests. The debug build installs as a separate app (`.debug` suffix), so tests never touch your real notes. Keep the phone unlocked and don't use it while they run.
   ```bash
   ./gradlew installDebug installDebugAndroidTest
   adb shell am instrument -w com.holymanzion.simplenotepro.debug.test/androidx.test.runner.AndroidJUnitRunner

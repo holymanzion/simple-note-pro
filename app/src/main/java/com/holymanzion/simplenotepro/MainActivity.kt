@@ -33,11 +33,14 @@ import com.holymanzion.simplenotepro.reminder.ReminderScheduler
 import com.holymanzion.simplenotepro.ui.editor.EditorScreen
 import com.holymanzion.simplenotepro.ui.editor.EditorViewModel
 import com.holymanzion.simplenotepro.ui.home.HomeScreen
+import com.holymanzion.simplenotepro.ui.TwoPaneHome
+import com.holymanzion.simplenotepro.ui.useTwoPane
 import com.holymanzion.simplenotepro.ui.home.NotesViewModel
 import com.holymanzion.simplenotepro.ui.labels.LabelsScreen
 import com.holymanzion.simplenotepro.ui.settings.PolicyScreen
 import com.holymanzion.simplenotepro.ui.settings.SettingsScreen
 import com.holymanzion.simplenotepro.ui.theme.SimpleNoteTheme
+import com.holymanzion.simplenotepro.update.ForceUpdate
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -49,11 +52,12 @@ private object Routes {
     const val PRIVACY = "privacy"
     const val EDITOR = "editor?${EditorViewModel.ARG_NOTE_ID}={${EditorViewModel.ARG_NOTE_ID}}" +
         "&${EditorViewModel.ARG_CHECKLIST}={${EditorViewModel.ARG_CHECKLIST}}" +
-        "&${EditorViewModel.ARG_LABEL_ID}={${EditorViewModel.ARG_LABEL_ID}}"
+        "&${EditorViewModel.ARG_LABEL_ID}={${EditorViewModel.ARG_LABEL_ID}}" +
+        "&${EditorViewModel.ARG_TEMPLATE_ID}={${EditorViewModel.ARG_TEMPLATE_ID}}"
 
-    fun editor(noteId: Long = -1, checklist: Boolean = false, labelId: Long? = null) =
+    fun editor(noteId: Long = -1, checklist: Boolean = false, labelId: Long? = null, templateId: Long = 0) =
         "editor?${EditorViewModel.ARG_NOTE_ID}=$noteId&${EditorViewModel.ARG_CHECKLIST}=$checklist" +
-            "&${EditorViewModel.ARG_LABEL_ID}=${labelId ?: -1}"
+            "&${EditorViewModel.ARG_LABEL_ID}=${labelId ?: -1}&${EditorViewModel.ARG_TEMPLATE_ID}=$templateId"
 }
 
 // FragmentActivity (a ComponentActivity) because the fingerprint prompt needs one.
@@ -62,6 +66,9 @@ class MainActivity : FragmentActivity() {
 
     /** Editor routes requested by notifications, shortcuts or shared text. */
     private val pendingRoutes = Channel<String>(Channel.BUFFERED)
+
+    /** Newer version on Google Play? Then it must be installed before the app can be used. */
+    internal val forceUpdate = ForceUpdate(this)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -88,7 +95,7 @@ class MainActivity : FragmentActivity() {
                 else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
             val locked by container.appLock.locked.collectAsStateWithLifecycle()
-            SimpleNoteTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor) {
+            SimpleNoteTheme(themeMode = settings.themeMode, dynamicColor = settings.dynamicColor, noteTextScale = settings.textSize.scale) {
                 val navController = rememberNavController()
                 LaunchedEffect(navController) {
                     pendingRoutes.receiveAsFlow().collect { route ->
@@ -116,6 +123,11 @@ class MainActivity : FragmentActivity() {
     override fun onStart() {
         super.onStart()
         container.appLock.onForeground(System.currentTimeMillis())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        forceUpdate.check()
     }
 
     override fun onStop() {
@@ -173,14 +185,31 @@ class MainActivity : FragmentActivity() {
         NavHost(navController = navController, startDestination = Routes.HOME) {
             composable(Routes.HOME) {
                 val vm: NotesViewModel = viewModel(factory = NotesViewModel.Factory)
-                HomeScreen(
+                @Composable
+                fun Home(
+                    onOpenNote: (Long) -> Unit,
+                    onNewNote: (Boolean, Long?) -> Unit,
+                    onNewFromTemplate: (Long, Long?) -> Unit,
+                ) = HomeScreen(
                     viewModel = vm,
-                    onOpenNote = { navController.navigate(Routes.editor(it)) },
-                    onNewNote = { checklist, labelId -> navController.navigate(Routes.editor(checklist = checklist, labelId = labelId)) },
+                    onOpenNote = onOpenNote,
+                    onNewNote = onNewNote,
+                    onNewFromTemplate = onNewFromTemplate,
                     onEditLabels = { navController.navigate(Routes.LABELS) },
                     onOpenSettings = { navController.navigate(Routes.SETTINGS) },
                     bannerAd = { UnlockedBanner() },
                 )
+                if (useTwoPane()) {
+                    TwoPaneHome { pane -> Home(pane.openNote, pane.newNote, pane.newFromTemplate) }
+                } else {
+                    Home(
+                        onOpenNote = { navController.navigate(Routes.editor(it)) },
+                        onNewNote = { checklist, labelId -> navController.navigate(Routes.editor(checklist = checklist, labelId = labelId)) },
+                        onNewFromTemplate = { templateId, labelId ->
+                            navController.navigate(Routes.editor(labelId = labelId, templateId = templateId))
+                        },
+                    )
+                }
             }
             composable(
                 Routes.EDITOR,
@@ -188,6 +217,7 @@ class MainActivity : FragmentActivity() {
                     navArgument(EditorViewModel.ARG_NOTE_ID) { type = NavType.LongType; defaultValue = -1L },
                     navArgument(EditorViewModel.ARG_CHECKLIST) { type = NavType.BoolType; defaultValue = false },
                     navArgument(EditorViewModel.ARG_LABEL_ID) { type = NavType.LongType; defaultValue = -1L },
+                    navArgument(EditorViewModel.ARG_TEMPLATE_ID) { type = NavType.LongType; defaultValue = 0L },
                 ),
             ) {
                 val vm: EditorViewModel = viewModel(factory = EditorViewModel.Factory)

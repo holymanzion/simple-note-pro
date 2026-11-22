@@ -10,9 +10,12 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.swipeRight
+import androidx.compose.ui.test.swipe
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.isToggleable
@@ -41,6 +44,7 @@ import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.FixMethodOrder
@@ -72,6 +76,7 @@ class QaWalkthroughTest {
         val repo = container.repository
         repo.deleteForever(repo.getAll().map { it.note.id })
         repo.labels.first().forEach { repo.deleteLabel(it.id) }
+        repo.allTemplates().forEach { repo.deleteTemplate(it.id) }
         container.settings.update { AppSettings(themeMode = ThemeMode.DARK, readingMode = false) }
         container.appLock.promptAutomatically = false
         container.appLock.unlock()
@@ -98,7 +103,12 @@ class QaWalkthroughTest {
     }
 
     private fun waitForText(text: String, substring: Boolean = false, timeout: Long = 5_000) {
-        rule.waitUntil(timeout) { rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
+        // While the activity is briefly paused (e.g. handling a new intent) there is no
+        // compose hierarchy to search; keep waiting instead of failing.
+        rule.waitUntil(timeout) {
+            runCatching { rule.onAllNodesWithText(text, substring = substring).fetchSemanticsNodes().isNotEmpty() }
+                .getOrDefault(false)
+        }
     }
 
     private fun waitGone(text: String, timeout: Long = 5_000) {
@@ -1025,5 +1035,223 @@ class QaWalkthroughTest {
         rule.onNodeWithText("Sermon notes").performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(rule.onAllNodesWithTag("reading-content").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    fun t30_textSize_makesNoteTextBigger() {
+        seed(Note(title = "Sizes", content = "A line of text to measure"))
+        fun readingHeight(size: com.holymanzion.simplenotepro.data.TextSize): Int {
+            container.settings.update { it.copy(readingMode = true, textSize = size) }
+            waitForText("Sizes")
+            rule.onNodeWithText("Sizes").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("reading-content").fetchSemanticsNodes().isNotEmpty() }
+            val height = rule.onNodeWithTag("reading-content").fetchSemanticsNode().size.height
+            back()
+            return height
+        }
+        val medium = readingHeight(com.holymanzion.simplenotepro.data.TextSize.MEDIUM)
+        val large = readingHeight(com.holymanzion.simplenotepro.data.TextSize.EXTRA_LARGE)
+        assertTrue("extra large $large vs medium $medium", large > medium)
+        shot("30a_home_extra_large_text")
+
+        // The setting, with its preview.
+        openDrawerItem("Settings")
+        rule.onNodeWithText("Text size").performClick()
+        rule.onNodeWithTag("text-size-sample").assertExists()
+        rule.onNodeWithText("Small").performClick()
+        assertEquals(com.holymanzion.simplenotepro.data.TextSize.SMALL, container.settings.settings.value.textSize)
+        shot("30b_text_size_dialog")
+        rule.onNodeWithText("Done").performClick()
+    }
+
+    @Test
+    fun t31_templates_newFromBuiltIn_saveOwn_andDelete() {
+        // A built-in text template fills in the new note, with today's date.
+        rule.onNodeWithContentDescription("New from template").performClick()
+        shot("31a_template_picker")
+        rule.onNodeWithTag("template-Sermon notes").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("editor-title").assertTextContains("Sermon", substring = true)
+        rule.onNodeWithTag("editor-content").assertTextContains("Preacher", substring = true)
+        rule.onNodeWithTag("editor-content").performTextInput("Pastor James")
+        shot("31b_from_template")
+
+        // Save it as the user's own template.
+        rule.onNodeWithContentDescription("More").performClick()
+        rule.onNodeWithText("Save as template").performClick()
+        rule.onNodeWithTag("template-name").performTextClearance()
+        rule.onNodeWithTag("template-name").performTextInput("My sermon")
+        rule.onNodeWithText("Save").performClick()
+        rule.waitUntil(5_000) { runBlocking { container.repository.allTemplates() }.any { it.name == "My sermon" } }
+        val saved = runBlocking { container.repository.allTemplates() }.first { it.name == "My sermon" }
+        assertTrue(saved.content.contains("Pastor James"))
+        back()
+        waitForText("Sermon", substring = true)
+        assertEquals(1, runBlocking { container.repository.getAll() }.size)
+
+        // A built-in checklist template.
+        rule.onNodeWithContentDescription("New from template").performClick()
+        rule.onNodeWithTag("template-Shopping list").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("checklist-item").fetchSemanticsNodes().size == 5 }
+        back()
+        // Left untouched, it is not kept as a note.
+        Thread.sleep(800)
+        assertEquals(1, runBlocking { container.repository.getAll() }.size)
+
+        // The saved template is listed first and can be deleted.
+        rule.onNodeWithContentDescription("New from template").performClick()
+        rule.onNodeWithText("Your templates").assertExists()
+        rule.onNodeWithContentDescription("Delete template My sermon").performClick()
+        rule.onNodeWithText("Delete").performClick()
+        rule.waitUntil(5_000) { runBlocking { container.repository.allTemplates() }.isEmpty() }
+        rule.onNodeWithText("Cancel").performClick()
+    }
+
+    @Test
+    fun t32_uncheckAll_oneTapWithUndo() {
+        val items = listOf(ChecklistItem(1, "Passport", true), ChecklistItem(2, "Charger", true), ChecklistItem(3, "Shoes"))
+        val id = seed(Note(title = "Packing", isChecklist = true, checklist = ChecklistCodec.encode(items))).single()
+        waitForText("Packing")
+        rule.onNodeWithText("Packing").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("uncheck-all").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithTag("uncheck-all").performClick()
+        rule.waitUntil(5_000) { runBlocking { container.repository.get(id) }!!.note.items.none { it.checked } }
+        shot("32a_unchecked")
+        rule.onNodeWithText("Undo").performClick()
+        rule.waitUntil(5_000) { runBlocking { container.repository.get(id) }!!.note.items.count { it.checked } == 2 }
+        back()
+    }
+
+    @Test
+    fun t33_shareAsImageAndPdf_makesFiles() {
+        val context = rule.activity
+        val photo = File(context.cacheDir, "export-photo.png")
+        photo.outputStream().use {
+            Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888).apply { eraseColor(android.graphics.Color.BLUE) }
+                .compress(Bitmap.CompressFormat.PNG, 100, it)
+        }
+        val note = com.holymanzion.simplenotepro.ui.editor.ExportedNote(
+            title = "Trip plan",
+            content = "# Day one\n**Bold** and *italic*\n- Museum\n- Lunch\nhttps://example.com",
+            isChecklist = false,
+            items = emptyList(),
+            color = 4,
+            images = listOf(photo),
+        )
+        val png = com.holymanzion.simplenotepro.ui.editor.NoteExport.toImage(context, note)
+        val image = android.graphics.BitmapFactory.decodeFile(png.path)
+        assertEquals(1080, image.width)
+        assertTrue(image.height in 600..8000)
+
+        // A long checklist goes over several PDF pages; a long picture is capped.
+        val long = note.copy(isChecklist = true, items = (1..200L).map { ChecklistItem(it, "Item number $it", it % 3 == 0L) })
+        val pdf = com.holymanzion.simplenotepro.ui.editor.NoteExport.toPdf(context, long)
+        android.os.ParcelFileDescriptor.open(pdf, android.os.ParcelFileDescriptor.MODE_READ_ONLY).use { fd ->
+            android.graphics.pdf.PdfRenderer(fd).use { assertTrue("pages: ${it.pageCount}", it.pageCount >= 3) }
+        }
+        val tall = com.holymanzion.simplenotepro.ui.editor.NoteExport.toImage(context, long)
+        assertTrue(android.graphics.BitmapFactory.decodeFile(tall.path).height <= 8000)
+
+        // The editor offers all three ways.
+        seed(Note(title = "Share me", content = "Hello"))
+        waitForText("Share me")
+        rule.onNodeWithText("Share me").performClick()
+        rule.onNodeWithContentDescription("More").performClick()
+        rule.onNodeWithText("Share").performClick()
+        rule.onNodeWithText("As text").assertExists()
+        rule.onNodeWithText("As image").assertExists()
+        rule.onNodeWithText("As PDF").assertExists()
+        shot("33a_share_options")
+        rule.onNodeWithText("Cancel").performClick()
+        back()
+    }
+
+    @Test
+    fun t34_drawing_savesAsPicture() {
+        rule.onNodeWithText("Note", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("editor-content").performTextInput("Sketch")
+        rule.onNodeWithContentDescription("Add").performClick()
+        rule.onNodeWithText("Drawing").performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithTag("drawing-canvas").fetchSemanticsNodes().isNotEmpty() }
+        rule.onNodeWithContentDescription("Red pen").performClick()
+        rule.onNodeWithTag("drawing-canvas").performTouchInput {
+            swipe(Offset(width * 0.2f, height * 0.2f), Offset(width * 0.8f, height * 0.6f), durationMillis = 300)
+        }
+        rule.onNodeWithTag("drawing-canvas").performTouchInput {
+            swipe(Offset(width * 0.8f, height * 0.2f), Offset(width * 0.2f, height * 0.6f), durationMillis = 300)
+        }
+        shot("34a_drawing")
+        rule.onNodeWithTag("drawing-save").performClick()
+        rule.waitUntil(10_000) {
+            runBlocking { container.repository.getAll() }.firstOrNull()?.attachments?.size == 1
+        }
+        val drawing = runBlocking { container.repository.getAll() }.first().attachments.single()
+        assertTrue(drawing.width > 100 && drawing.height > 100)
+        shot("34b_note_with_drawing")
+        back()
+    }
+
+    @Test
+    fun t35_voiceTyping_offeredInEditor() {
+        rule.onNodeWithText("Note", useUnmergedTree = true).performClick()
+        rule.onNodeWithTag("editor-content").performTextInput("Hi")
+        // On the formatting bar while typing, and in the + menu.
+        rule.onNodeWithContentDescription("Voice typing").assertExists()
+        rule.onNodeWithContentDescription("Add").performClick()
+        rule.onNodeWithText("Voice typing").assertExists()
+        shot("35a_voice_typing_menu")
+    }
+
+    @Test
+    fun t36_tabletLayout_listAndNoteSideBySide() {
+        com.holymanzion.simplenotepro.ui.TwoPane.forced = true
+        try {
+            seed(Note(title = "Left list", content = "Opens on the right"))
+            waitForText("Select a note to read or edit it here")
+            rule.onNodeWithText("Left list").performClick()
+            rule.waitUntil(5_000) { rule.onAllNodesWithTag("editor-content").fetchSemanticsNodes().isNotEmpty() }
+            // The list is still there beside the note.
+            rule.onNodeWithText("Note", useUnmergedTree = true).assertExists()
+            shot("36a_two_pane")
+
+            // A new note opens in the pane, saves, and shows up in the list.
+            rule.onNodeWithText("Note", useUnmergedTree = true).performClick()
+            rule.waitUntil(5_000) { rule.onAllNodesWithText("New note").fetchSemanticsNodes().isNotEmpty() }
+            rule.onNodeWithTag("editor-content").performTextInput("Written on a tablet")
+            rule.waitUntil(5_000) { runBlocking { container.repository.getAll() }.size == 2 }
+
+            // Back closes the pane.
+            back()
+            waitForText("Select a note to read or edit it here")
+        } finally {
+            com.holymanzion.simplenotepro.ui.TwoPane.forced = null
+        }
+    }
+
+    @Test
+    fun t37_forceUpdate_opensPlaysUpdatePage_onlyWhenNewerVersionOnPlay() {
+        val fake = com.google.android.play.core.appupdate.testing.FakeAppUpdateManager(rule.activity)
+        val forceUpdate = rule.activity.forceUpdate
+        com.holymanzion.simplenotepro.update.ForceUpdate.testManager = fake
+        try {
+            // Up to date: nothing happens.
+            fake.setUpdateNotAvailable()
+            rule.runOnUiThread { forceUpdate.check() }
+            rule.waitForIdle()
+            Thread.sleep(300)
+            assertFalse(fake.isImmediateFlowVisible)
+
+            // A newer version on Play: the full-screen update opens straight away.
+            fake.setUpdateAvailable(BuildConfig.VERSION_CODE + 1, com.google.android.play.core.install.model.AppUpdateType.IMMEDIATE)
+            rule.runOnUiThread { forceUpdate.check() }
+            rule.waitUntil(5_000) { fake.isImmediateFlowVisible }
+
+            // If Play fails (no space, no connection), the notes stay usable.
+            rule.runOnUiThread { forceUpdate.onClosed(com.google.android.play.core.install.model.ActivityResult.RESULT_IN_APP_UPDATE_FAILED) }
+            assertFalse(rule.activity.isFinishing)
+            rule.onNodeWithText("Note", useUnmergedTree = true).assertExists()
+        } finally {
+            com.holymanzion.simplenotepro.update.ForceUpdate.testManager = null
+        }
     }
 }

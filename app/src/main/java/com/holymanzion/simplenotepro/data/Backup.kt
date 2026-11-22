@@ -39,7 +39,7 @@ class BackupManager(
             val zip = if (password != null) ZipOutputStream(out.buffered(), password) else ZipOutputStream(out.buffered())
             zip.use {
                 zip.putNextEntry(entry(NOTES_ENTRY, password, CompressionMethod.DEFLATE))
-                zip.write(notesJson(notes).toString(2).toByteArray())
+                zip.write(notesJson(notes, repository.allTemplates()).toString(2).toByteArray())
                 zip.closeEntry()
                 notes.flatMap { it.attachments }.forEach { attachment ->
                     val file = store.file(attachment.fileName)
@@ -109,13 +109,17 @@ class BackupManager(
             notesText ?: error("No notes.json in backup")
         }
 
-        val notes = JSONObject(json).getJSONArray("notes")
+        val root = JSONObject(json)
+        val notes = root.getJSONArray("notes")
         val labelIds = mutableMapOf<String, Long>()
-        repository.inTransaction { importNotes(notes, labelIds, files) }
+        repository.inTransaction {
+            importNotes(notes, labelIds, files)
+            root.optJSONArray("templates")?.let { importTemplates(it) }
+        }
         return notes.length()
     }
 
-    private fun notesJson(notes: List<NoteWithLabels>) = JSONObject()
+    private fun notesJson(notes: List<NoteWithLabels>, templates: List<NoteTemplate>) = JSONObject()
         .put("app", "Simple Note Pro")
         .put("version", FORMAT_VERSION)
         .put("exportedAt", System.currentTimeMillis())
@@ -142,6 +146,19 @@ class BackupManager(
                                 put(JSONObject().put("file", it.fileName).put("width", it.width).put("height", it.height).put("text", it.ocrText ?: JSONObject.NULL))
                             }
                         })
+                )
+            }
+        })
+        .put("templates", JSONArray().apply {
+            templates.forEach { t ->
+                put(
+                    JSONObject()
+                        .put("name", t.name)
+                        .put("title", t.title)
+                        .put("content", t.content)
+                        .put("checklist", t.checklist)
+                        .put("isChecklist", t.isChecklist)
+                        .put("createdAt", t.createdAt),
                 )
             }
         })
@@ -176,6 +193,23 @@ class BackupManager(
                 val stored = files[a.optString("file")] ?: continue
                 repository.addStoredImage(noteId, stored, a.optInt("width"), a.optInt("height"), a.optStringOrNull("text"))
             }
+        }
+    }
+
+    /** Adds templates from a backup, skipping ones that are already here (same name and text). */
+    private suspend fun importTemplates(templates: JSONArray) {
+        val existing = repository.allTemplates().map { Triple(it.name, it.title, it.content + it.checklist) }.toMutableSet()
+        for (i in 0 until templates.length()) {
+            val o = templates.getJSONObject(i)
+            val template = NoteTemplate(
+                name = o.optString("name").ifBlank { "Template" },
+                title = o.optString("title"),
+                content = o.optString("content"),
+                checklist = o.optString("checklist"),
+                isChecklist = o.optBoolean("isChecklist"),
+                createdAt = o.optLong("createdAt", System.currentTimeMillis()),
+            )
+            if (existing.add(Triple(template.name, template.title, template.content + template.checklist))) repository.saveTemplate(template)
         }
     }
 

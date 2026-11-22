@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.FormatBold
 import androidx.compose.material.icons.outlined.FormatItalic
 import androidx.compose.material.icons.outlined.FormatListNumbered
 import androidx.compose.material.icons.outlined.FormatStrikethrough
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Title
 import androidx.compose.material3.AlertDialog
@@ -78,6 +79,7 @@ import coil3.compose.AsyncImage
 import com.holymanzion.simplenotepro.data.Attachment
 import com.holymanzion.simplenotepro.data.AttachmentStore
 import com.holymanzion.simplenotepro.text.RichText
+import com.holymanzion.simplenotepro.ui.theme.forNotes
 import java.io.File
 
 internal const val MAX_IMAGES_PER_PICK = 10
@@ -93,7 +95,7 @@ internal fun RichContentField(
     onValueChange: (TextFieldValue) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val style = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface)
+    val style = MaterialTheme.typography.bodyLarge.forNotes().copy(color = MaterialTheme.colorScheme.onSurface)
     val markColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f)
     val linkColor = MaterialTheme.colorScheme.primary
     val styling = remember(markColor, linkColor) {
@@ -123,7 +125,7 @@ internal fun RichContentField(
 
 /** Shown above the keyboard while the body is being edited. */
 @Composable
-internal fun FormattingToolbar(onAction: ((TextFieldValue) -> TextFieldValue) -> Unit) {
+internal fun FormattingToolbar(onAction: ((TextFieldValue) -> TextFieldValue) -> Unit, onVoice: () -> Unit) {
     Column {
         HorizontalDivider()
         Row(
@@ -133,6 +135,7 @@ internal fun FormattingToolbar(onAction: ((TextFieldValue) -> TextFieldValue) ->
                 .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 4.dp),
         ) {
+            FormatButton(Icons.Outlined.Mic, "Voice typing", onVoice)
             FormatButton(Icons.Outlined.FormatBold, "Bold") { onAction { RichText.toggleInline(it, "**") } }
             FormatButton(Icons.Outlined.FormatItalic, "Italic") { onAction { RichText.toggleInline(it, "*") } }
             FormatButton(Icons.Outlined.FormatStrikethrough, "Strikethrough") { onAction { RichText.toggleInline(it, "~~") } }
@@ -325,6 +328,16 @@ private fun Context.shareImage(attachment: Attachment) {
         .putExtra(Intent.EXTRA_STREAM, uri)
         .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     startActivity(Intent.createChooser(send, "Share image"))
+}
+
+/** Shares a file made for sharing (a note as an image or PDF). */
+internal fun Context.shareFile(file: File, mime: String, subject: String) {
+    val send = Intent(Intent.ACTION_SEND)
+        .setType(mime)
+        .putExtra(Intent.EXTRA_STREAM, fileProviderUri(file))
+        .putExtra(Intent.EXTRA_SUBJECT, subject)
+        .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    startActivity(Intent.createChooser(send, "Share note"))
 }
 
 internal fun Context.openLink(url: String) {

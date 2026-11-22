@@ -1,6 +1,8 @@
 package com.holymanzion.simplenotepro.ui.editor
 
+import android.graphics.Bitmap
 import android.net.Uri
+import com.holymanzion.simplenotepro.data.NoteTemplate
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
@@ -153,7 +155,15 @@ class EditorViewModel(
             } else {
                 noteId = 0
                 savedState.get<Long>(ARG_LABEL_ID)?.takeIf { it > 0 }?.let { labelIds = setOf(it) }
-                if (isChecklist) addItem()
+                val template = savedState.get<Long>(ARG_TEMPLATE_ID)?.takeIf { it != 0L }?.let { repository.template(it) }?.filled()
+                if (template != null) {
+                    // Starts as the template's text; like any new note it's only saved once changed.
+                    title = template.title
+                    content = template.content
+                    isChecklist = template.isChecklist
+                    items.addAll(template.items.map { it.copy(id = ChecklistCodec.newId(), checked = false) })
+                }
+                if (isChecklist && items.isEmpty()) addItem()
             }
             lastSaved = snapshot()
             history.add(editState())
@@ -339,6 +349,52 @@ class EditorViewModel(
         }
     }
 
+    /** Adds a finger drawing to the note's pictures. Takes ownership of [bitmap]. */
+    fun addDrawing(bitmap: Bitmap) {
+        importingImages++
+        appScope.launch {
+            save(force = true)
+            val ok = runCatching { repository.addDrawing(noteId, bitmap) }.isSuccess
+            bitmap.recycle()
+            withContext(Dispatchers.Main) {
+                importingImages--
+                if (!ok) message = "Couldn't save the drawing"
+            }
+            // Handwriting becomes searchable like text in photos.
+            repository.readPendingImageText()
+        }
+    }
+
+    /** Spoken words for a checklist become a new item after the last unticked one. */
+    fun addSpokenItem(text: String) {
+        val clean = text.trim()
+        if (clean.isEmpty()) return
+        // Reuse an empty item (e.g. a fresh checklist's first row) rather than leaving it blank.
+        val blank = items.lastOrNull { !it.checked && it.text.isBlank() }
+        if (blank != null) {
+            items[items.indexOf(blank)] = blank.copy(text = clean)
+        } else {
+            addItem(afterId = items.lastOrNull { !it.checked }?.id, text = clean)
+        }
+    }
+
+    /** Saves this note's writing as a template for new notes. */
+    fun saveAsTemplate(name: String) {
+        val clean = name.trim().ifEmpty { title.trim().ifEmpty { "My template" } }
+        appScope.launch {
+            repository.saveTemplate(
+                NoteTemplate(
+                    name = clean,
+                    title = title,
+                    content = if (isChecklist) "" else content,
+                    checklist = if (isChecklist) ChecklistCodec.encode(items.filter { it.text.isNotBlank() }) else "",
+                    isChecklist = isChecklist,
+                ),
+            )
+            withContext(Dispatchers.Main) { message = "Saved as template \"$clean\"" }
+        }
+    }
+
     fun removeImage(attachment: Attachment) {
         appScope.launch { repository.removeAttachment(attachment) }
     }
@@ -452,8 +508,17 @@ class EditorViewModel(
         items.add(to, items.removeAt(from))
     }
 
-    fun uncheckAll() {
+    /** Unticks every item, e.g. to reuse a packing list. Returns the items as they were, for undo. */
+    fun uncheckAll(): List<ChecklistItem> {
+        val before = items.toList()
         items.replaceAll { it.copy(checked = false) }
+        return before
+    }
+
+    /** Puts back items saved by [uncheckAll]. */
+    fun restoreItems(saved: List<ChecklistItem>) {
+        items.clear()
+        items.addAll(saved)
     }
 
     fun deleteCheckedItems() {
@@ -476,6 +541,8 @@ class EditorViewModel(
         const val ARG_NOTE_ID = "noteId"
         const val ARG_CHECKLIST = "checklist"
         const val ARG_LABEL_ID = "labelId"
+        /** Template to start a new note from: negative for built-in ones, 0 for none. */
+        const val ARG_TEMPLATE_ID = "templateId"
         private const val UNDO_PAUSE_MS = 500L
         private const val MAX_HISTORY = 100
 
@@ -483,6 +550,17 @@ class EditorViewModel(
             initializer {
                 val container = (this[APPLICATION_KEY] as SimpleNoteApp).container
                 EditorViewModel(createSavedStateHandle(), container.repository, container.settings, container.appScope)
+            }
+        }
+
+        /** For the editor beside the notes list on tablets, which isn't a navigation destination. */
+        fun paneFactory(noteId: Long, checklist: Boolean, labelId: Long?, templateId: Long) = viewModelFactory {
+            initializer {
+                val container = (this[APPLICATION_KEY] as SimpleNoteApp).container
+                val args = SavedStateHandle(
+                    mapOf(ARG_NOTE_ID to noteId, ARG_CHECKLIST to checklist, ARG_LABEL_ID to (labelId ?: -1L), ARG_TEMPLATE_ID to templateId),
+                )
+                EditorViewModel(args, container.repository, container.settings, container.appScope)
             }
         }
     }
